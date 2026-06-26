@@ -12570,6 +12570,7 @@ var Event = /** @class */ (function () {
                                 realTo: newRealTo,
                                 realRange: newRealTo - newRealFrom
                             });
+                            this._chart.adjustPaneViewport(false, true, true, true);
                         }
                         var distanceX = event_3.x - this._startScrollCoordinate.x;
                         var distanceY = event_3.y - this._startScrollCoordinate.y;

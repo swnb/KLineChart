@@ -268,6 +268,7 @@ export default class Event implements EventHandler {
                 realTo: newRealTo,
                 realRange: newRealTo - newRealFrom
               })
+              this._chart.adjustPaneViewport(false, true, true, true)
             }
             const distanceX = event.x - this._startScrollCoordinate.x
             const distanceY = event.y - this._startScrollCoordinate.y
