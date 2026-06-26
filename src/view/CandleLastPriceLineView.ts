@@ -14,9 +14,23 @@
 
 import type YAxis from '../component/YAxis'
 
+import Animation from '../common/Animation'
+import { UpdateLevel } from '../common/Updater'
+
 import View from './View'
 
 export default class CandleLastPriceView extends View {
+  private _prevPrice: number | null = null
+  private _flashUp = false
+  private _animationFrameTime = 0
+  private _flashDuration = 600
+
+  private readonly _animation = new Animation({ duration: 600, iterationCount: 1 }).doFrame((time) => {
+    this._animationFrameTime = time
+    const pane = this.getWidget().getPane()
+    pane.getChart().updatePane(UpdateLevel.Main, pane.getId())
+  })
+
   override drawImp (ctx: CanvasRenderingContext2D): void {
     const widget = this.getWidget()
     const pane = widget.getPane()
@@ -40,6 +54,17 @@ export default class CandleLastPriceView extends View {
         } else {
           color = lastPriceMarkStyles.noChangeColor
         }
+        const flashStyles = lastPriceMarkStyles.flash
+        if (flashStyles.show) {
+          if (this._prevPrice !== null && close !== this._prevPrice) {
+            this._flashUp = close > this._prevPrice
+            this._animationFrameTime = 0
+            this._flashDuration = flashStyles.duration
+            this._animation.stop()
+            this._animation.setDuration(flashStyles.duration).start()
+          }
+          this._prevPrice = close
+        }
         this.createFigure({
           name: 'line',
           attrs: {
@@ -55,6 +80,28 @@ export default class CandleLastPriceView extends View {
             dashedValue: lastPriceMarkLineStyles.dashedValue
           }
         })?.draw(ctx)
+        const flashProgress = this._animationFrameTime / this._flashDuration
+        if (flashStyles.show && this._animationFrameTime > 0 && flashProgress < 1) {
+          const flashColor = this._flashUp ? lastPriceMarkStyles.upColor : lastPriceMarkStyles.downColor
+          ctx.save()
+          ctx.globalAlpha = 1 - flashProgress
+          this.createFigure({
+            name: 'line',
+            attrs: {
+              coordinates: [
+                { x: 0, y: priceY },
+                { x: bounding.width, y: priceY }
+              ]
+            },
+            styles: {
+              style: lastPriceMarkLineStyles.style,
+              color: flashColor,
+              size: flashStyles.size,
+              dashedValue: lastPriceMarkLineStyles.dashedValue
+            }
+          })?.draw(ctx)
+          ctx.restore()
+        }
       }
     }
   }
