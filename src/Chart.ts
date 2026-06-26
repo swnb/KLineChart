@@ -77,6 +77,7 @@ export interface Chart {
   getLocale: () => string
   setStyles: (styles: string | DeepPartial<Styles>) => void
   getStyles: () => Styles
+  setPriceAxisAutoScale: (autoScale: boolean, paneId?: string) => void
   setCustomApi: (customApi: Partial<CustomApi>) => void
   setPriceVolumePrecision: (pricePrecision: number, volumePrecision: number) => void
   getPriceVolumePrecision: () => Precision
@@ -579,6 +580,14 @@ export default class ChartImp implements Chart {
 
   getStyles (): Styles {
     return this._chartStore.getStyles()
+  }
+
+  setPriceAxisAutoScale (autoScale: boolean, paneId?: string): void {
+    const pane = isString(paneId) ? this.getDrawPaneById(paneId) : this._candlePane
+    if (pane !== null) {
+      pane.getAxisComponent().setAutoCalcTickFlag(autoScale)
+      this.adjustPaneViewport(false, true, true, true, autoScale)
+    }
   }
 
   setLocale (locale: string): void {

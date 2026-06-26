@@ -158,6 +158,11 @@ export default class Event implements EventHandler {
           this._prevYAxisRange = range === null ? range : { ...range }
           this._startScrollCoordinate = { x: event.x, y: event.y }
           this._chart.getChartStore().getTimeScaleStore().startScroll()
+          if (this._flingScrollRequestId !== null) {
+            cancelAnimationFrame(this._flingScrollRequestId)
+            this._flingScrollRequestId = null
+          }
+          this._flingStartTime = new Date().getTime()
           return widget.dispatchEvent('mouseDownEvent', event)
         }
         case WidgetNameConstants.X_AXIS: {
@@ -264,8 +269,13 @@ export default class Event implements EventHandler {
                 realRange: newRealTo - newRealFrom
               })
             }
-            const distance = event.x - this._startScrollCoordinate.x
-            this._chart.getChartStore().getTimeScaleStore().scroll(distance)
+            const distanceX = event.x - this._startScrollCoordinate.x
+            const distanceY = event.y - this._startScrollCoordinate.y
+            const pressedDominantHorizontalDrag = Math.abs(distanceX) >= 4 && Math.abs(distanceX) > Math.abs(distanceY) * 1.2
+            if (pressedDominantHorizontalDrag) {
+              this._flingStartTime = new Date().getTime()
+              this._chart.getChartStore().getTimeScaleStore().scroll(distanceX)
+            }
           }
           this._chart.getChartStore().getTooltipStore().setCrosshair({ x: event.x, y: event.y, paneId: pane?.getId() })
           return consumed
