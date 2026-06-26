@@ -15,12 +15,25 @@
 import { YAxisType } from '../common/Styles'
 import { formatPrecision, formatThousands, formatFoldDecimal } from '../common/utils/format'
 import { isValid } from '../common/utils/typeChecks'
+import Animation from '../common/Animation'
+import { UpdateLevel } from '../common/Updater'
 
 import View from './View'
 
 import type YAxis from '../component/YAxis'
 
 export default class CandleLastPriceLabelView extends View {
+  private _prevPrice: number | null = null
+  private _flashUp = false
+  private _animationFrameTime = 0
+  private _flashDuration = 600
+
+  private readonly _animation = new Animation({ duration: 600, iterationCount: 1 }).doFrame((time) => {
+    this._animationFrameTime = time
+    const pane = this.getWidget().getPane()
+    pane.getChart().updatePane(UpdateLevel.Main, pane.getId())
+  })
+
   override drawImp (ctx: CanvasRenderingContext2D): void {
     const widget = this.getWidget()
     const pane = widget.getPane()
@@ -45,6 +58,17 @@ export default class CandleLastPriceLabelView extends View {
         } else {
           backgroundColor = lastPriceMarkStyles.noChangeColor
         }
+        const flashStyles = lastPriceMarkStyles.flash
+        if (flashStyles.show) {
+          if (this._prevPrice !== null && close !== this._prevPrice) {
+            this._flashUp = close > this._prevPrice
+            this._animationFrameTime = 0
+            this._flashDuration = flashStyles.duration
+            this._animation.stop()
+            this._animation.setDuration(flashStyles.duration).start()
+          }
+          this._prevPrice = close
+        }
         let text: string
         if (yAxis.getType() === YAxisType.Percentage) {
           const fromData = chartStore.getVisibleFirstData()
@@ -62,6 +86,27 @@ export default class CandleLastPriceLabelView extends View {
         } else {
           x = bounding.width
           textAlgin = 'right'
+        }
+        const flashProgress = this._animationFrameTime / this._flashDuration
+        if (flashStyles.show && this._animationFrameTime > 0 && flashProgress < 1) {
+          const flashBg = this._flashUp ? lastPriceMarkStyles.upColor : lastPriceMarkStyles.downColor
+          ctx.save()
+          ctx.globalAlpha = 1 - flashProgress
+          this.createFigure({
+            name: 'text',
+            attrs: {
+              x,
+              y: priceY,
+              text,
+              align: textAlgin,
+              baseline: 'middle'
+            },
+            styles: {
+              ...lastPriceMarkTextStyles,
+              backgroundColor: flashBg
+            }
+          })?.draw(ctx)
+          ctx.restore()
         }
         this.createFigure({
           name: 'text',
