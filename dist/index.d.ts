@@ -186,10 +186,16 @@ export interface CandleHighLowPriceMarkStyle {
 	textWeight: string;
 }
 export type CandleLastPriceMarkLineStyle = Omit<StateLineStyle, "color">;
+export interface CandleLastPriceMarkFlashStyle {
+	show: boolean;
+	duration: number;
+	size: number;
+}
 export interface CandleLastPriceMarkStyle extends ChangeColor {
 	show: boolean;
 	line: CandleLastPriceMarkLineStyle;
 	text: LastValueMarkTextStyle;
+	flash: CandleLastPriceMarkFlashStyle;
 }
 export interface CandlePriceMarkStyle {
 	show: boolean;

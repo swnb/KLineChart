@@ -304,6 +304,11 @@ function getDefaultCandleStyle() {
                     family: 'Helvetica Neue',
                     weight: 'normal',
                     borderRadius: 2
+                },
+                flash: {
+                    show: true,
+                    duration: 600,
+                    size: 2
                 }
             }
         },
@@ -9179,10 +9184,20 @@ var CandleHighLowPriceView = /** @class */ (function (_super) {
 var CandleLastPriceView = /** @class */ (function (_super) {
     __extends(CandleLastPriceView, _super);
     function CandleLastPriceView() {
-        return _super !== null && _super.apply(this, arguments) || this;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._prevPrice = null;
+        _this._flashUp = false;
+        _this._animationFrameTime = 0;
+        _this._flashDuration = 600;
+        _this._animation = new Animation({ duration: 600, iterationCount: 1 }).doFrame(function (time) {
+            _this._animationFrameTime = time;
+            var pane = _this.getWidget().getPane();
+            pane.getChart().updatePane(0 /* UpdateLevel.Main */, pane.getId());
+        });
+        return _this;
     }
     CandleLastPriceView.prototype.drawImp = function (ctx) {
-        var _a;
+        var _a, _b;
         var widget = this.getWidget();
         var pane = widget.getPane();
         var bounding = widget.getBounding();
@@ -9207,6 +9222,17 @@ var CandleLastPriceView = /** @class */ (function (_super) {
                 else {
                     color = lastPriceMarkStyles.noChangeColor;
                 }
+                var flashStyles = lastPriceMarkStyles.flash;
+                if (flashStyles.show) {
+                    if (this._prevPrice !== null && close_1 !== this._prevPrice) {
+                        this._flashUp = close_1 > this._prevPrice;
+                        this._animationFrameTime = 0;
+                        this._flashDuration = flashStyles.duration;
+                        this._animation.stop();
+                        this._animation.setDuration(flashStyles.duration).start();
+                    }
+                    this._prevPrice = close_1;
+                }
                 (_a = this.createFigure({
                     name: 'line',
                     attrs: {
@@ -9222,6 +9248,28 @@ var CandleLastPriceView = /** @class */ (function (_super) {
                         dashedValue: lastPriceMarkLineStyles.dashedValue
                     }
                 })) === null || _a === void 0 ? void 0 : _a.draw(ctx);
+                var flashProgress = this._animationFrameTime / this._flashDuration;
+                if (flashStyles.show && this._animationFrameTime > 0 && flashProgress < 1) {
+                    var flashColor = this._flashUp ? lastPriceMarkStyles.upColor : lastPriceMarkStyles.downColor;
+                    ctx.save();
+                    ctx.globalAlpha = 1 - flashProgress;
+                    (_b = this.createFigure({
+                        name: 'line',
+                        attrs: {
+                            coordinates: [
+                                { x: 0, y: priceY },
+                                { x: bounding.width, y: priceY }
+                            ]
+                        },
+                        styles: {
+                            style: lastPriceMarkLineStyles.style,
+                            color: flashColor,
+                            size: flashStyles.size,
+                            dashedValue: lastPriceMarkLineStyles.dashedValue
+                        }
+                    })) === null || _b === void 0 ? void 0 : _b.draw(ctx);
+                    ctx.restore();
+                }
             }
         }
     };
@@ -9854,10 +9902,20 @@ var YAxisView = /** @class */ (function (_super) {
 var CandleLastPriceLabelView = /** @class */ (function (_super) {
     __extends(CandleLastPriceLabelView, _super);
     function CandleLastPriceLabelView() {
-        return _super !== null && _super.apply(this, arguments) || this;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._prevPrice = null;
+        _this._flashUp = false;
+        _this._animationFrameTime = 0;
+        _this._flashDuration = 600;
+        _this._animation = new Animation({ duration: 600, iterationCount: 1 }).doFrame(function (time) {
+            _this._animationFrameTime = time;
+            var pane = _this.getWidget().getPane();
+            pane.getChart().updatePane(0 /* UpdateLevel.Main */, pane.getId());
+        });
+        return _this;
     }
     CandleLastPriceLabelView.prototype.drawImp = function (ctx) {
-        var _a;
+        var _a, _b;
         var widget = this.getWidget();
         var pane = widget.getPane();
         var bounding = widget.getBounding();
@@ -9883,6 +9941,17 @@ var CandleLastPriceLabelView = /** @class */ (function (_super) {
                 else {
                     backgroundColor = lastPriceMarkStyles.noChangeColor;
                 }
+                var flashStyles = lastPriceMarkStyles.flash;
+                if (flashStyles.show) {
+                    if (this._prevPrice !== null && close_1 !== this._prevPrice) {
+                        this._flashUp = close_1 > this._prevPrice;
+                        this._animationFrameTime = 0;
+                        this._flashDuration = flashStyles.duration;
+                        this._animation.stop();
+                        this._animation.setDuration(flashStyles.duration).start();
+                    }
+                    this._prevPrice = close_1;
+                }
                 var text = void 0;
                 if (yAxis.getType() === YAxisType.Percentage) {
                     var fromData = chartStore.getVisibleFirstData();
@@ -9903,7 +9972,25 @@ var CandleLastPriceLabelView = /** @class */ (function (_super) {
                     x = bounding.width;
                     textAlgin = 'right';
                 }
-                (_a = this.createFigure({
+                var flashProgress = this._animationFrameTime / this._flashDuration;
+                if (flashStyles.show && this._animationFrameTime > 0 && flashProgress < 1) {
+                    var flashBg = this._flashUp ? lastPriceMarkStyles.upColor : lastPriceMarkStyles.downColor;
+                    ctx.save();
+                    ctx.globalAlpha = 1 - flashProgress;
+                    (_a = this.createFigure({
+                        name: 'text',
+                        attrs: {
+                            x: x,
+                            y: priceY,
+                            text: text,
+                            align: textAlgin,
+                            baseline: 'middle'
+                        },
+                        styles: __assign(__assign({}, lastPriceMarkTextStyles), { backgroundColor: flashBg })
+                    })) === null || _a === void 0 ? void 0 : _a.draw(ctx);
+                    ctx.restore();
+                }
+                (_b = this.createFigure({
                     name: 'text',
                     attrs: {
                         x: x,
@@ -9913,7 +10000,7 @@ var CandleLastPriceLabelView = /** @class */ (function (_super) {
                         baseline: 'middle'
                     },
                     styles: __assign(__assign({}, lastPriceMarkTextStyles), { backgroundColor: backgroundColor })
-                })) === null || _a === void 0 ? void 0 : _a.draw(ctx);
+                })) === null || _b === void 0 ? void 0 : _b.draw(ctx);
             }
         }
     };
