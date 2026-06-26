@@ -216,10 +216,16 @@ export interface CandleHighLowPriceMarkStyle {
 }
 
 export type CandleLastPriceMarkLineStyle = Omit<StateLineStyle, 'color'>
+export interface CandleLastPriceMarkFlashStyle {
+  show: boolean
+  duration: number
+  size: number
+}
 export interface CandleLastPriceMarkStyle extends ChangeColor {
   show: boolean
   line: CandleLastPriceMarkLineStyle
   text: LastValueMarkTextStyle
+  flash: CandleLastPriceMarkFlashStyle
 }
 
 export interface CandlePriceMarkStyle {
@@ -505,6 +511,11 @@ function getDefaultCandleStyle (): CandleStyle {
           family: 'Helvetica Neue',
           weight: 'normal',
           borderRadius: 2
+        },
+        flash: {
+          show: true,
+          duration: 600,
+          size: 2
         }
       }
     },
