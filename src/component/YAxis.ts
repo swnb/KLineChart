@@ -51,6 +51,7 @@ export default abstract class YAxisImp extends AxisImp implements YAxis {
     let specifyMin = Number.MAX_SAFE_INTEGER
     let specifyMax = Number.MIN_SAFE_INTEGER
     let indicatorPrecision = Number.MAX_SAFE_INTEGER
+    const capProviders: Array<{ provider: (v: number[]) => number, keys: string[], values: number[] }> = []
     const indicators = chartStore.getIndicatorStore().getInstances(parent.getId())
     indicators.forEach(indicator => {
       if (!shouldOhlc) {
@@ -62,6 +63,13 @@ export default abstract class YAxisImp extends AxisImp implements YAxis {
       }
       if (isNumber(indicator.maxValue)) {
         specifyMax = Math.max(specifyMax, indicator.maxValue)
+      }
+      if (typeof indicator.visibleRangeMaxProvider === 'function') {
+        capProviders.push({
+          provider: indicator.visibleRangeMaxProvider,
+          keys: (indicator.figures ?? []).map(f => f.key),
+          values: []
+        })
       }
       figuresResultList.push({
         figures: indicator.figures ?? [],
@@ -109,6 +117,11 @@ export default abstract class YAxisImp extends AxisImp implements YAxis {
           if (isNumber(value)) {
             min = Math.min(min, value)
             max = Math.max(max, value)
+            capProviders.forEach(cp => {
+              if (cp.keys.includes(figure.key)) {
+                cp.values.push(value)
+              }
+            })
           }
         })
       })
@@ -120,6 +133,17 @@ export default abstract class YAxisImp extends AxisImp implements YAxis {
     } else {
       min = 0
       max = 10
+    }
+
+    if (max !== Number.MIN_SAFE_INTEGER) {
+      capProviders.forEach(cp => {
+        if (cp.values.length > 0) {
+          const cap = cp.provider(cp.values)
+          if (isNumber(cap) && cap > 0 && cap < max) {
+            max = cap
+          }
+        }
+      })
     }
 
     const type = this.getType()

@@ -33,6 +33,7 @@ export default class IndicatorStore {
   private _overrideInstance (instance: IndicatorImp, indicator: Partial<Indicator>): [boolean, boolean, boolean] {
     const {
       shortName, series, calcParams, precision, figures, minValue, maxValue,
+      visibleRangeMaxProvider,
       shouldOhlc, shouldFormatBigNumber, visible, zLevel, styles, extendData,
       regenerateFigures, createTooltipDataSource, draw, calc
     } = indicator
@@ -56,6 +57,10 @@ export default class IndicatorStore {
       updateFlag = true
     }
     if (maxValue !== undefined && instance.setMinValue(maxValue)) {
+      updateFlag = true
+    }
+    if (visibleRangeMaxProvider !== undefined) {
+      instance.visibleRangeMaxProvider = visibleRangeMaxProvider
       updateFlag = true
     }
     if (isNumber(precision) && instance.setPrecision(precision)) {

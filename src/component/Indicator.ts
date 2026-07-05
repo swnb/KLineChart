@@ -183,6 +183,13 @@ export interface Indicator<D = any> {
   maxValue: Nullable<number>
 
   /**
+   * Optional cap for the pane's y-axis max, computed from the indicator's values
+   * within the current visible range. Lets a pane (e.g. volume) clip outliers so
+   * the bulk of bars keep readable relative height. Return <= 0 to skip.
+   */
+  visibleRangeMaxProvider?: (visibleValues: number[]) => number
+
+  /**
    * Style configuration
    */
   styles: Nullable<Partial<IndicatorStyle>>
@@ -298,6 +305,7 @@ export default abstract class IndicatorImp<D = any> implements Indicator<D> {
   figures: Array<IndicatorFigure<D>>
   minValue: Nullable<number>
   maxValue: Nullable<number>
+  visibleRangeMaxProvider?: (visibleValues: number[]) => number
   styles: Nullable<Partial<IndicatorStyle>>
   regenerateFigures: Nullable<IndicatorRegenerateFiguresCallback<D>>
   createTooltipDataSource: Nullable<IndicatorCreateTooltipDataSourceCallback>
@@ -311,7 +319,7 @@ export default abstract class IndicatorImp<D = any> implements Indicator<D> {
     const {
       name, shortName, series, calcParams, figures, precision,
       shouldOhlc, shouldFormatBigNumber, visible, zLevel,
-      minValue, maxValue, styles, extendData,
+      minValue, maxValue, visibleRangeMaxProvider, styles, extendData,
       regenerateFigures, createTooltipDataSource, draw
     } = indicator
     this.name = name
@@ -326,6 +334,7 @@ export default abstract class IndicatorImp<D = any> implements Indicator<D> {
     this.zLevel = zLevel ?? 0
     this.minValue = minValue ?? null
     this.maxValue = maxValue ?? null
+    this.visibleRangeMaxProvider = visibleRangeMaxProvider
     this.styles = clone(styles ?? {})
     this.extendData = extendData
     this.regenerateFigures = regenerateFigures ?? null

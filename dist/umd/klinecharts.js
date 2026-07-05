@@ -1044,7 +1044,7 @@ var IndicatorImp = /** @class */ (function () {
     function IndicatorImp(indicator) {
         this.result = [];
         this._precisionFlag = false;
-        var name = indicator.name, shortName = indicator.shortName, series = indicator.series, calcParams = indicator.calcParams, figures = indicator.figures, precision = indicator.precision, shouldOhlc = indicator.shouldOhlc, shouldFormatBigNumber = indicator.shouldFormatBigNumber, visible = indicator.visible, zLevel = indicator.zLevel, minValue = indicator.minValue, maxValue = indicator.maxValue, styles = indicator.styles, extendData = indicator.extendData, regenerateFigures = indicator.regenerateFigures, createTooltipDataSource = indicator.createTooltipDataSource, draw = indicator.draw;
+        var name = indicator.name, shortName = indicator.shortName, series = indicator.series, calcParams = indicator.calcParams, figures = indicator.figures, precision = indicator.precision, shouldOhlc = indicator.shouldOhlc, shouldFormatBigNumber = indicator.shouldFormatBigNumber, visible = indicator.visible, zLevel = indicator.zLevel, minValue = indicator.minValue, maxValue = indicator.maxValue, visibleRangeMaxProvider = indicator.visibleRangeMaxProvider, styles = indicator.styles, extendData = indicator.extendData, regenerateFigures = indicator.regenerateFigures, createTooltipDataSource = indicator.createTooltipDataSource, draw = indicator.draw;
         this.name = name;
         this.shortName = shortName !== null && shortName !== void 0 ? shortName : name;
         this.series = series !== null && series !== void 0 ? series : exports.IndicatorSeries.Normal;
@@ -1057,6 +1057,7 @@ var IndicatorImp = /** @class */ (function () {
         this.zLevel = zLevel !== null && zLevel !== void 0 ? zLevel : 0;
         this.minValue = minValue !== null && minValue !== void 0 ? minValue : null;
         this.maxValue = maxValue !== null && maxValue !== void 0 ? maxValue : null;
+        this.visibleRangeMaxProvider = visibleRangeMaxProvider;
         this.styles = clone(styles !== null && styles !== void 0 ? styles : {});
         this.extendData = extendData;
         this.regenerateFigures = regenerateFigures !== null && regenerateFigures !== void 0 ? regenerateFigures : null;
@@ -4115,7 +4116,7 @@ var IndicatorStore = /** @class */ (function () {
         this._chartStore = chartStore;
     }
     IndicatorStore.prototype._overrideInstance = function (instance, indicator) {
-        var shortName = indicator.shortName, series = indicator.series, calcParams = indicator.calcParams, precision = indicator.precision, figures = indicator.figures, minValue = indicator.minValue, maxValue = indicator.maxValue, shouldOhlc = indicator.shouldOhlc, shouldFormatBigNumber = indicator.shouldFormatBigNumber, visible = indicator.visible, zLevel = indicator.zLevel, styles = indicator.styles, extendData = indicator.extendData, regenerateFigures = indicator.regenerateFigures, createTooltipDataSource = indicator.createTooltipDataSource, draw = indicator.draw, calc = indicator.calc;
+        var shortName = indicator.shortName, series = indicator.series, calcParams = indicator.calcParams, precision = indicator.precision, figures = indicator.figures, minValue = indicator.minValue, maxValue = indicator.maxValue, visibleRangeMaxProvider = indicator.visibleRangeMaxProvider, shouldOhlc = indicator.shouldOhlc, shouldFormatBigNumber = indicator.shouldFormatBigNumber, visible = indicator.visible, zLevel = indicator.zLevel, styles = indicator.styles, extendData = indicator.extendData, regenerateFigures = indicator.regenerateFigures, createTooltipDataSource = indicator.createTooltipDataSource, draw = indicator.draw, calc = indicator.calc;
         var updateFlag = false;
         if (isString(shortName) && instance.setShortName(shortName)) {
             updateFlag = true;
@@ -4136,6 +4137,10 @@ var IndicatorStore = /** @class */ (function () {
             updateFlag = true;
         }
         if (maxValue !== undefined && instance.setMinValue(maxValue)) {
+            updateFlag = true;
+        }
+        if (visibleRangeMaxProvider !== undefined) {
+            instance.visibleRangeMaxProvider = visibleRangeMaxProvider;
             updateFlag = true;
         }
         if (isNumber(precision) && instance.setPrecision(precision)) {
@@ -10395,9 +10400,10 @@ var YAxisImp = /** @class */ (function (_super) {
         var specifyMin = Number.MAX_SAFE_INTEGER;
         var specifyMax = Number.MIN_SAFE_INTEGER;
         var indicatorPrecision = Number.MAX_SAFE_INTEGER;
+        var capProviders = [];
         var indicators = chartStore.getIndicatorStore().getInstances(parent.getId());
         indicators.forEach(function (indicator) {
-            var _a, _b, _c;
+            var _a, _b, _c, _d;
             if (!shouldOhlc) {
                 shouldOhlc = (_a = indicator.shouldOhlc) !== null && _a !== void 0 ? _a : false;
             }
@@ -10408,9 +10414,16 @@ var YAxisImp = /** @class */ (function (_super) {
             if (isNumber(indicator.maxValue)) {
                 specifyMax = Math.max(specifyMax, indicator.maxValue);
             }
+            if (typeof indicator.visibleRangeMaxProvider === 'function') {
+                capProviders.push({
+                    provider: indicator.visibleRangeMaxProvider,
+                    keys: ((_b = indicator.figures) !== null && _b !== void 0 ? _b : []).map(function (f) { return f.key; }),
+                    values: []
+                });
+            }
             figuresResultList.push({
-                figures: (_b = indicator.figures) !== null && _b !== void 0 ? _b : [],
-                result: (_c = indicator.result) !== null && _c !== void 0 ? _c : []
+                figures: (_c = indicator.figures) !== null && _c !== void 0 ? _c : [],
+                result: (_d = indicator.result) !== null && _d !== void 0 ? _d : []
             });
         });
         var precision = 4;
@@ -10458,6 +10471,11 @@ var YAxisImp = /** @class */ (function (_super) {
                     if (isNumber(value)) {
                         min = Math.min(min, value);
                         max = Math.max(max, value);
+                        capProviders.forEach(function (cp) {
+                            if (cp.keys.includes(figure.key)) {
+                                cp.values.push(value);
+                            }
+                        });
                     }
                 });
             });
@@ -10469,6 +10487,16 @@ var YAxisImp = /** @class */ (function (_super) {
         else {
             min = 0;
             max = 10;
+        }
+        if (max !== Number.MIN_SAFE_INTEGER) {
+            capProviders.forEach(function (cp) {
+                if (cp.values.length > 0) {
+                    var cap = cp.provider(cp.values);
+                    if (isNumber(cap) && cap > 0 && cap < max) {
+                        max = cap;
+                    }
+                }
+            });
         }
         var type = this.getType();
         var dif;

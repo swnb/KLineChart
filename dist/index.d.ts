@@ -1098,6 +1098,12 @@ export interface Indicator<D = any> {
 	 */
 	maxValue: Nullable<number>;
 	/**
+	 * Optional cap for the pane's y-axis max, computed from the indicator's values
+	 * within the current visible range. Lets a pane (e.g. volume) clip outliers so
+	 * the bulk of bars keep readable relative height. Return <= 0 to skip.
+	 */
+	visibleRangeMaxProvider?: (visibleValues: number[]) => number;
+	/**
 	 * Style configuration
 	 */
 	styles: Nullable<Partial<IndicatorStyle>>;
