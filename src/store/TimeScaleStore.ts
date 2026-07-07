@@ -33,7 +33,7 @@ interface LeftRightSide {
 }
 
 const BarSpaceLimitConstants = {
-  MIN: 1,
+  MIN: 0.5,
   MAX: 50
 }
 
@@ -253,10 +253,13 @@ export default class TimeScaleStore {
   }
 
   setBarSpace (barSpace: number, adjustBeforeFunc?: () => void): void {
-    if (barSpace < BarSpaceLimitConstants.MIN || barSpace > BarSpaceLimitConstants.MAX || this._barSpace === barSpace) {
+    // Clamp instead of rejecting out-of-range values so zooming can actually
+    // land on MIN/MAX instead of stalling one multiplicative step above them.
+    const space = Math.min(Math.max(barSpace, BarSpaceLimitConstants.MIN), BarSpaceLimitConstants.MAX)
+    if (this._barSpace === space) {
       return
     }
-    this._barSpace = barSpace
+    this._barSpace = space
     this._gapBarSpace = this._calcGapBarSpace()
     adjustBeforeFunc?.()
     this.adjustVisibleRange()

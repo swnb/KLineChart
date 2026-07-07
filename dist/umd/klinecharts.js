@@ -1939,7 +1939,7 @@ function getDefaultVisibleRange() {
  * limitations under the License.
  */
 var BarSpaceLimitConstants = {
-    MIN: 1,
+    MIN: 0.5,
     MAX: 50
 };
 var DEFAULT_BAR_SPACE = 8;
@@ -2113,10 +2113,13 @@ var TimeScaleStore = /** @class */ (function () {
         };
     };
     TimeScaleStore.prototype.setBarSpace = function (barSpace, adjustBeforeFunc) {
-        if (barSpace < BarSpaceLimitConstants.MIN || barSpace > BarSpaceLimitConstants.MAX || this._barSpace === barSpace) {
+        // Clamp instead of rejecting out-of-range values so zooming can actually
+        // land on MIN/MAX instead of stalling one multiplicative step above them.
+        var space = Math.min(Math.max(barSpace, BarSpaceLimitConstants.MIN), BarSpaceLimitConstants.MAX);
+        if (this._barSpace === space) {
             return;
         }
-        this._barSpace = barSpace;
+        this._barSpace = space;
         this._gapBarSpace = this._calcGapBarSpace();
         adjustBeforeFunc === null || adjustBeforeFunc === void 0 ? void 0 : adjustBeforeFunc();
         this.adjustVisibleRange();
@@ -13633,12 +13636,7 @@ var ChartImp = /** @class */ (function () {
         }
         this._chartStore.addData(data, exports.LoadDataType.Init, more).then(function () { }).catch(function () { }).finally(function () { callback === null || callback === void 0 ? void 0 : callback(); });
     };
-    /**
-     * @deprecated
-     * Since v9.8.0 deprecated, since v10 removed
-     */
     ChartImp.prototype.applyMoreData = function (data, more, callback) {
-        logWarn('', '', 'Api `applyMoreData` has been deprecated since version 9.8.0.');
         this._chartStore.addData(data, exports.LoadDataType.Forward, more !== null && more !== void 0 ? more : true).then(function () { }).catch(function () { }).finally(function () { callback === null || callback === void 0 ? void 0 : callback(); });
     };
     ChartImp.prototype.updateData = function (data, callback) {

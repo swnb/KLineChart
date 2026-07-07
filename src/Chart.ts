@@ -689,12 +689,7 @@ export default class ChartImp implements Chart {
     this._chartStore.addData(data, LoadDataType.Init, more).then(() => {}).catch(() => {}).finally(() => { callback?.() })
   }
 
-  /**
-   * @deprecated
-   * Since v9.8.0 deprecated, since v10 removed
-   */
   applyMoreData (data: KLineData[], more?: boolean, callback?: () => void): void {
-    logWarn('', '', 'Api `applyMoreData` has been deprecated since version 9.8.0.')
     this._chartStore.addData(data, LoadDataType.Forward, more ?? true).then(() => {}).catch(() => {}).finally(() => { callback?.() })
   }
 
