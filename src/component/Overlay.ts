@@ -211,6 +211,14 @@ export interface Overlay {
   performEventMoveForDrawing: Nullable<(params: OverlayPerformEventParams) => void>
 
   /**
+   * Point indexes translated by a pressed move on a non-point figure, resolved
+   * by the pressed figure's key. Return null for all points (whole-overlay
+   * translate, the default). Trade fork extension: lets one overlay expose
+   * per-figure drag semantics (e.g. channel edge vs channel interior).
+   */
+  pressedOtherMovePointIndexes: Nullable<(params: { key: string, points: Array<Partial<Point>> }) => Nullable<number[]>>
+
+  /**
    * Start drawing event
    */
   onDrawStart: Nullable<OverlayEventCallback>
@@ -282,7 +290,7 @@ export interface Overlay {
 }
 
 export type OverlayTemplate = ExcludePickPartial<Omit<Overlay, 'id' | 'groupId' | 'paneId' | 'points' | 'currentStep'>, 'name'>
-export type OverlayCreate = ExcludePickPartial<Omit<Overlay, 'paneId' | 'currentStep' | 'totalStep' | 'createPointFigures' | 'createXAxisFigures' | 'createYAxisFigures' | 'performEventPressedMove' | 'performEventMoveForDrawing'>, 'name'>
+export type OverlayCreate = ExcludePickPartial<Omit<Overlay, 'paneId' | 'currentStep' | 'totalStep' | 'createPointFigures' | 'createXAxisFigures' | 'createYAxisFigures' | 'performEventPressedMove' | 'performEventMoveForDrawing' | 'pressedOtherMovePointIndexes'>, 'name'>
 export type OverlayRemove = Partial<Pick<Overlay, 'id' | 'groupId' | 'name'>>
 export type OverlayInnerConstructor = new () => OverlayImp
 export type OverlayConstructor = new () => Overlay
@@ -317,6 +325,7 @@ export default abstract class OverlayImp implements Overlay {
   createYAxisFigures: Nullable<OverlayCreateFiguresCallback>
   performEventPressedMove: Nullable<(params: OverlayPerformEventParams) => void>
   performEventMoveForDrawing: Nullable<(params: OverlayPerformEventParams) => void>
+  pressedOtherMovePointIndexes: Nullable<(params: { key: string, points: Array<Partial<Point>> }) => Nullable<number[]>>
   onDrawStart: Nullable<OverlayEventCallback>
   onDrawing: Nullable<OverlayEventCallback>
   onDrawEnd: Nullable<OverlayEventCallback>
@@ -342,6 +351,7 @@ export default abstract class OverlayImp implements Overlay {
       needDefaultPointFigure, needDefaultXAxisFigure, needDefaultYAxisFigure,
       createPointFigures, createXAxisFigures, createYAxisFigures,
       performEventPressedMove, performEventMoveForDrawing,
+      pressedOtherMovePointIndexes,
       onDrawStart, onDrawing, onDrawEnd,
       onClick, onDoubleClick, onRightClick,
       onPressedMoveStart, onPressedMoving, onPressedMoveEnd,
@@ -365,6 +375,7 @@ export default abstract class OverlayImp implements Overlay {
     this.createYAxisFigures = createYAxisFigures ?? null
     this.performEventPressedMove = performEventPressedMove ?? null
     this.performEventMoveForDrawing = performEventMoveForDrawing ?? null
+    this.pressedOtherMovePointIndexes = pressedOtherMovePointIndexes ?? null
     this.onDrawStart = onDrawStart ?? null
     this.onDrawing = onDrawing ?? null
     this.onDrawEnd = onDrawEnd ?? null
@@ -667,7 +678,7 @@ export default abstract class OverlayImp implements Overlay {
     this._prevPressedPoints = clone(this.points)
   }
 
-  eventPressedOtherMove (point: Partial<Point>, timeScaleStore: TimeScaleStore): void {
+  eventPressedOtherMove (point: Partial<Point>, timeScaleStore: TimeScaleStore, figureKey?: string): void {
     if (this._prevPressedPoint !== null) {
       let difDataIndex: number
       if (isNumber(point.dataIndex) && isNumber(this._prevPressedPoint.dataIndex)) {
@@ -677,7 +688,16 @@ export default abstract class OverlayImp implements Overlay {
       if (isNumber(point.value) && isNumber(this._prevPressedPoint.value)) {
         difValue = point.value - this._prevPressedPoint.value
       }
-      this.points = this._prevPressedPoints.map(p => {
+      // Trade fork: the overlay may scope the translate to a subset of points
+      // depending on which figure is being dragged (null = all points).
+      const includedIndexes = this.pressedOtherMovePointIndexes?.({
+        key: figureKey ?? '',
+        points: this._prevPressedPoints
+      }) ?? null
+      this.points = this._prevPressedPoints.map((p, index) => {
+        if (includedIndexes !== null && !includedIndexes.includes(index)) {
+          return { ...p }
+        }
         if (isNumber(p.timestamp)) {
           p.dataIndex = timeScaleStore.timestampToDataIndex(p.timestamp)
         }

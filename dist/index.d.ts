@@ -769,6 +769,15 @@ export interface Overlay {
 	 */
 	performEventMoveForDrawing: Nullable<(params: OverlayPerformEventParams) => void>;
 	/**
+	 * Point indexes translated by a pressed move on a non-point figure, resolved
+	 * by the pressed figure's key. Return null for all points (whole-overlay
+	 * translate, the default). Trade fork extension.
+	 */
+	pressedOtherMovePointIndexes: Nullable<(params: {
+		key: string;
+		points: Array<Partial<Point>>;
+	}) => Nullable<number[]>>;
+	/**
 	 * Start drawing event
 	 */
 	onDrawStart: Nullable<OverlayEventCallback>;
@@ -826,7 +835,7 @@ export interface Overlay {
 	onDeselected: Nullable<OverlayEventCallback>;
 }
 export type OverlayTemplate = ExcludePickPartial<Omit<Overlay, "id" | "groupId" | "paneId" | "points" | "currentStep">, "name">;
-export type OverlayCreate = ExcludePickPartial<Omit<Overlay, "paneId" | "currentStep" | "totalStep" | "createPointFigures" | "createXAxisFigures" | "createYAxisFigures" | "performEventPressedMove" | "performEventMoveForDrawing">, "name">;
+export type OverlayCreate = ExcludePickPartial<Omit<Overlay, "paneId" | "currentStep" | "totalStep" | "createPointFigures" | "createXAxisFigures" | "createYAxisFigures" | "performEventPressedMove" | "performEventMoveForDrawing" | "pressedOtherMovePointIndexes">, "name">;
 export type OverlayRemove = Partial<Pick<Overlay, "id" | "groupId" | "name">>;
 export type OverlayConstructor = new () => Overlay;
 export declare enum DomPosition {

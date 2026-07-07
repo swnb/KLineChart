@@ -1250,7 +1250,7 @@ var OverlayImp = /** @class */ (function () {
         this.points = [];
         this._prevPressedPoint = null;
         this._prevPressedPoints = [];
-        var mode = overlay.mode, modeSensitivity = overlay.modeSensitivity, extendData = overlay.extendData, styles = overlay.styles, name = overlay.name, totalStep = overlay.totalStep, lock = overlay.lock, visible = overlay.visible, zLevel = overlay.zLevel, needDefaultPointFigure = overlay.needDefaultPointFigure, needDefaultXAxisFigure = overlay.needDefaultXAxisFigure, needDefaultYAxisFigure = overlay.needDefaultYAxisFigure, createPointFigures = overlay.createPointFigures, createXAxisFigures = overlay.createXAxisFigures, createYAxisFigures = overlay.createYAxisFigures, performEventPressedMove = overlay.performEventPressedMove, performEventMoveForDrawing = overlay.performEventMoveForDrawing, onDrawStart = overlay.onDrawStart, onDrawing = overlay.onDrawing, onDrawEnd = overlay.onDrawEnd, onClick = overlay.onClick, onDoubleClick = overlay.onDoubleClick, onRightClick = overlay.onRightClick, onPressedMoveStart = overlay.onPressedMoveStart, onPressedMoving = overlay.onPressedMoving, onPressedMoveEnd = overlay.onPressedMoveEnd, onMouseEnter = overlay.onMouseEnter, onMouseLeave = overlay.onMouseLeave, onRemoved = overlay.onRemoved, onSelected = overlay.onSelected, onDeselected = overlay.onDeselected;
+        var mode = overlay.mode, modeSensitivity = overlay.modeSensitivity, extendData = overlay.extendData, styles = overlay.styles, name = overlay.name, totalStep = overlay.totalStep, lock = overlay.lock, visible = overlay.visible, zLevel = overlay.zLevel, needDefaultPointFigure = overlay.needDefaultPointFigure, needDefaultXAxisFigure = overlay.needDefaultXAxisFigure, needDefaultYAxisFigure = overlay.needDefaultYAxisFigure, createPointFigures = overlay.createPointFigures, createXAxisFigures = overlay.createXAxisFigures, createYAxisFigures = overlay.createYAxisFigures, performEventPressedMove = overlay.performEventPressedMove, performEventMoveForDrawing = overlay.performEventMoveForDrawing, pressedOtherMovePointIndexes = overlay.pressedOtherMovePointIndexes, onDrawStart = overlay.onDrawStart, onDrawing = overlay.onDrawing, onDrawEnd = overlay.onDrawEnd, onClick = overlay.onClick, onDoubleClick = overlay.onDoubleClick, onRightClick = overlay.onRightClick, onPressedMoveStart = overlay.onPressedMoveStart, onPressedMoving = overlay.onPressedMoving, onPressedMoveEnd = overlay.onPressedMoveEnd, onMouseEnter = overlay.onMouseEnter, onMouseLeave = overlay.onMouseLeave, onRemoved = overlay.onRemoved, onSelected = overlay.onSelected, onDeselected = overlay.onDeselected;
         this.name = name;
         this.totalStep = (!isNumber(totalStep) || totalStep < 2) ? 1 : totalStep;
         this.lock = lock !== null && lock !== void 0 ? lock : false;
@@ -1268,6 +1268,7 @@ var OverlayImp = /** @class */ (function () {
         this.createYAxisFigures = createYAxisFigures !== null && createYAxisFigures !== void 0 ? createYAxisFigures : null;
         this.performEventPressedMove = performEventPressedMove !== null && performEventPressedMove !== void 0 ? performEventPressedMove : null;
         this.performEventMoveForDrawing = performEventMoveForDrawing !== null && performEventMoveForDrawing !== void 0 ? performEventMoveForDrawing : null;
+        this.pressedOtherMovePointIndexes = pressedOtherMovePointIndexes !== null && pressedOtherMovePointIndexes !== void 0 ? pressedOtherMovePointIndexes : null;
         this.onDrawStart = onDrawStart !== null && onDrawStart !== void 0 ? onDrawStart : null;
         this.onDrawing = onDrawing !== null && onDrawing !== void 0 ? onDrawing : null;
         this.onDrawEnd = onDrawEnd !== null && onDrawEnd !== void 0 ? onDrawEnd : null;
@@ -1541,7 +1542,8 @@ var OverlayImp = /** @class */ (function () {
         this._prevPressedPoint = __assign({}, point);
         this._prevPressedPoints = clone(this.points);
     };
-    OverlayImp.prototype.eventPressedOtherMove = function (point, timeScaleStore) {
+    OverlayImp.prototype.eventPressedOtherMove = function (point, timeScaleStore, figureKey) {
+        var _a, _b;
         if (this._prevPressedPoint !== null) {
             var difDataIndex_1;
             if (isNumber(point.dataIndex) && isNumber(this._prevPressedPoint.dataIndex)) {
@@ -1551,8 +1553,17 @@ var OverlayImp = /** @class */ (function () {
             if (isNumber(point.value) && isNumber(this._prevPressedPoint.value)) {
                 difValue_1 = point.value - this._prevPressedPoint.value;
             }
-            this.points = this._prevPressedPoints.map(function (p) {
+            // Trade fork: the overlay may scope the translate to a subset of points
+            // depending on which figure is being dragged (null = all points).
+            var includedIndexes_1 = (_b = (_a = this.pressedOtherMovePointIndexes) === null || _a === void 0 ? void 0 : _a.call(this, {
+                key: figureKey !== null && figureKey !== void 0 ? figureKey : '',
+                points: this._prevPressedPoints
+            })) !== null && _b !== void 0 ? _b : null;
+            this.points = this._prevPressedPoints.map(function (p, index) {
                 var _a;
+                if (includedIndexes_1 !== null && !includedIndexes_1.includes(index)) {
+                    return __assign({}, p);
+                }
                 if (isNumber(p.timestamp)) {
                     p.dataIndex = timeScaleStore.timestampToDataIndex(p.timestamp);
                 }
@@ -8537,7 +8548,7 @@ var OverlayView = /** @class */ (function (_super) {
                         instance.eventPressedPointMove(point, figureIndex);
                     }
                     else {
-                        instance.eventPressedOtherMove(point, _this.getWidget().getPane().getChart().getChartStore().getTimeScaleStore());
+                        instance.eventPressedOtherMove(point, _this.getWidget().getPane().getChart().getChartStore().getTimeScaleStore(), figureKey);
                     }
                 }
                 return true;
