@@ -8531,15 +8531,18 @@ var OverlayView = /** @class */ (function (_super) {
             var _a, _b;
             var _c = overlayStore.getPressedInstanceInfo(), instance = _c.instance, figureType = _c.figureType, figureIndex = _c.figureIndex, figureKey = _c.figureKey;
             if (instance !== null) {
-                if (!instance.lock) {
-                    if (!((_b = (_a = instance.onPressedMoving) === null || _a === void 0 ? void 0 : _a.call(instance, __assign({ overlay: instance, figureIndex: figureIndex, figureKey: figureKey }, event))) !== null && _b !== void 0 ? _b : false)) {
-                        var point = _this._coordinateToPoint(instance, event);
-                        if (figureType === 1 /* EventOverlayInfoFigureType.Point */) {
-                            instance.eventPressedPointMove(point, figureIndex);
-                        }
-                        else {
-                            instance.eventPressedOtherMove(point, _this.getWidget().getPane().getChart().getChartStore().getTimeScaleStore());
-                        }
+                if (instance.lock) {
+                    // Locked overlays must not swallow the drag: fall through so the
+                    // chart pans instead of a dead drag on the pressed overlay.
+                    return false;
+                }
+                if (!((_b = (_a = instance.onPressedMoving) === null || _a === void 0 ? void 0 : _a.call(instance, __assign({ overlay: instance, figureIndex: figureIndex, figureKey: figureKey }, event))) !== null && _b !== void 0 ? _b : false)) {
+                    var point = _this._coordinateToPoint(instance, event);
+                    if (figureType === 1 /* EventOverlayInfoFigureType.Point */) {
+                        instance.eventPressedPointMove(point, figureIndex);
+                    }
+                    else {
+                        instance.eventPressedOtherMove(point, _this.getWidget().getPane().getChart().getChartStore().getTimeScaleStore());
                     }
                 }
                 return true;

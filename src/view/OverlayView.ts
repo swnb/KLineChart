@@ -163,14 +163,17 @@ export default class OverlayView<C extends Axis = YAxis> extends View<C> {
     }).registerEvent('pressedMouseMoveEvent', (event: MouseTouchEvent) => {
       const { instance, figureType, figureIndex, figureKey } = overlayStore.getPressedInstanceInfo()
       if (instance !== null) {
-        if (!instance.lock) {
-          if (!(instance.onPressedMoving?.({ overlay: instance, figureIndex, figureKey, ...event }) ?? false)) {
-            const point = this._coordinateToPoint(instance, event)
-            if (figureType === EventOverlayInfoFigureType.Point) {
-              instance.eventPressedPointMove(point, figureIndex)
-            } else {
-              instance.eventPressedOtherMove(point, this.getWidget().getPane().getChart().getChartStore().getTimeScaleStore())
-            }
+        if (instance.lock) {
+          // Locked overlays must not swallow the drag: fall through so the
+          // chart pans instead of a dead drag on the pressed overlay.
+          return false
+        }
+        if (!(instance.onPressedMoving?.({ overlay: instance, figureIndex, figureKey, ...event }) ?? false)) {
+          const point = this._coordinateToPoint(instance, event)
+          if (figureType === EventOverlayInfoFigureType.Point) {
+            instance.eventPressedPointMove(point, figureIndex)
+          } else {
+            instance.eventPressedOtherMove(point, this.getWidget().getPane().getChart().getChartStore().getTimeScaleStore())
           }
         }
         return true
