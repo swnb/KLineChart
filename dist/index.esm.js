@@ -12166,6 +12166,11 @@ var SyntheticEvent = /** @class */ (function () {
             if (manhattanDistance < 5 /* ManhattanDistance.DoubleClick */ && !this._cancelClick) {
                 this._processEvent(compatEvent, this._handler.mouseDoubleClickEvent);
             }
+            else if (!this._cancelClick) {
+                // a fast second click far from the first is an independent click, not a
+                // double-click candidate — swallowing it loses drawing anchor points
+                this._processEvent(compatEvent, this._handler.mouseClickEvent);
+            }
             this._resetClickTimeout();
         }
         else {
