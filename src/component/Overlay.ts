@@ -126,6 +126,12 @@ export interface Overlay {
   totalStep: number
 
   /**
+   * Whether a cancelled click/tap drag may advance drawing steps on release.
+   * Trade fork extension; disabled by default so ordinary pan semantics remain.
+   */
+  drawByDrag: boolean
+
+  /**
    * Current step
    */
   currentStep: number
@@ -290,7 +296,7 @@ export interface Overlay {
 }
 
 export type OverlayTemplate = ExcludePickPartial<Omit<Overlay, 'id' | 'groupId' | 'paneId' | 'points' | 'currentStep'>, 'name'>
-export type OverlayCreate = ExcludePickPartial<Omit<Overlay, 'paneId' | 'currentStep' | 'totalStep' | 'createPointFigures' | 'createXAxisFigures' | 'createYAxisFigures' | 'performEventPressedMove' | 'performEventMoveForDrawing' | 'pressedOtherMovePointIndexes'>, 'name'>
+export type OverlayCreate = ExcludePickPartial<Omit<Overlay, 'paneId' | 'currentStep' | 'totalStep' | 'drawByDrag' | 'createPointFigures' | 'createXAxisFigures' | 'createYAxisFigures' | 'performEventPressedMove' | 'performEventMoveForDrawing' | 'pressedOtherMovePointIndexes'>, 'name'>
 export type OverlayRemove = Partial<Pick<Overlay, 'id' | 'groupId' | 'name'>>
 export type OverlayInnerConstructor = new () => OverlayImp
 export type OverlayConstructor = new () => Overlay
@@ -308,6 +314,7 @@ export default abstract class OverlayImp implements Overlay {
   paneId: string
   name: string
   totalStep: number
+  drawByDrag: boolean
   currentStep: number = OVERLAY_DRAW_STEP_START
   needDefaultPointFigure: boolean
   needDefaultXAxisFigure: boolean
@@ -347,7 +354,7 @@ export default abstract class OverlayImp implements Overlay {
   constructor (overlay: OverlayTemplate) {
     const {
       mode, modeSensitivity, extendData, styles,
-      name, totalStep, lock, visible, zLevel,
+      name, totalStep, drawByDrag, lock, visible, zLevel,
       needDefaultPointFigure, needDefaultXAxisFigure, needDefaultYAxisFigure,
       createPointFigures, createXAxisFigures, createYAxisFigures,
       performEventPressedMove, performEventMoveForDrawing,
@@ -360,6 +367,7 @@ export default abstract class OverlayImp implements Overlay {
     } = overlay
     this.name = name
     this.totalStep = (!isNumber(totalStep) || totalStep < 2) ? 1 : totalStep
+    this.drawByDrag = drawByDrag ?? false
     this.lock = lock ?? false
     this.visible = visible ?? true
     this.zLevel = zLevel ?? 0

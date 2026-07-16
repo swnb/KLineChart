@@ -495,6 +495,10 @@ export interface MouseTouchEvent extends Coordinate {
 	pageX: number;
 	pageY: number;
 	isTouch?: boolean;
+	/** Whether the release follows movement beyond the click/tap threshold. */
+	isDrag?: boolean;
+	/** Press coordinate before a drag, in the event target coordinate space. */
+	pressedStart?: Coordinate;
 	preventDefault?: () => void;
 }
 /**
@@ -701,6 +705,11 @@ export interface Overlay {
 	 */
 	totalStep: number;
 	/**
+	 * Whether a cancelled click/tap drag may advance drawing steps on release.
+	 * Trade fork extension; disabled by default so ordinary pan semantics remain.
+	 */
+	drawByDrag: boolean;
+	/**
 	 * Current step
 	 */
 	currentStep: number;
@@ -771,7 +780,8 @@ export interface Overlay {
 	/**
 	 * Point indexes translated by a pressed move on a non-point figure, resolved
 	 * by the pressed figure's key. Return null for all points (whole-overlay
-	 * translate, the default). Trade fork extension.
+	 * translate, the default). Trade fork extension: lets one overlay expose
+	 * per-figure drag semantics (e.g. channel edge vs channel interior).
 	 */
 	pressedOtherMovePointIndexes: Nullable<(params: {
 		key: string;
@@ -835,7 +845,7 @@ export interface Overlay {
 	onDeselected: Nullable<OverlayEventCallback>;
 }
 export type OverlayTemplate = ExcludePickPartial<Omit<Overlay, "id" | "groupId" | "paneId" | "points" | "currentStep">, "name">;
-export type OverlayCreate = ExcludePickPartial<Omit<Overlay, "paneId" | "currentStep" | "totalStep" | "createPointFigures" | "createXAxisFigures" | "createYAxisFigures" | "performEventPressedMove" | "performEventMoveForDrawing" | "pressedOtherMovePointIndexes">, "name">;
+export type OverlayCreate = ExcludePickPartial<Omit<Overlay, "paneId" | "currentStep" | "totalStep" | "drawByDrag" | "createPointFigures" | "createXAxisFigures" | "createYAxisFigures" | "performEventPressedMove" | "performEventMoveForDrawing" | "pressedOtherMovePointIndexes">, "name">;
 export type OverlayRemove = Partial<Pick<Overlay, "id" | "groupId" | "name">>;
 export type OverlayConstructor = new () => Overlay;
 export declare enum DomPosition {

@@ -520,7 +520,11 @@ export default class Event implements EventHandler {
       const name = widget.getName()
       switch (name) {
         case WidgetNameConstants.MAIN: {
-          widget.dispatchEvent('mouseUpEvent', event)
+          const consumed = widget.dispatchEvent('mouseUpEvent', event)
+          if (consumed) {
+            this._chart.updatePane(UpdateLevel.Overlay)
+            return true
+          }
           if (this._startScrollCoordinate !== null) {
             const time = new Date().getTime() - this._flingStartTime
             const distance = event.x - this._startScrollCoordinate.x
@@ -663,10 +667,15 @@ export default class Event implements EventHandler {
 
   private _makeWidgetEvent (event: MouseTouchEvent, widget: Nullable<Widget>): MouseTouchEvent {
     const bounding = widget?.getBounding() ?? null
+    const left = bounding?.left ?? 0
+    const top = bounding?.top ?? 0
     return {
       ...event,
-      x: event.x - (bounding?.left ?? 0),
-      y: event.y - (bounding?.top ?? 0)
+      x: event.x - left,
+      y: event.y - top,
+      pressedStart: event.pressedStart === undefined
+        ? undefined
+        : { x: event.pressedStart.x - left, y: event.pressedStart.y - top }
     }
   }
 

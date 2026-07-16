@@ -32,8 +32,10 @@ function deleteFiles (dir) {
       } else {
         fs.unlinkSync(path)
         deletedFileCount++
-        process.stdout.clearLine(process.stdout);
-        process.stdout.cursorTo(0)
+        // CI and redirected builds do not expose TTY cursor helpers. Cleaning
+        // must remain canonical in both interactive and non-interactive shells.
+        process.stdout.clearLine?.(0)
+        process.stdout.cursorTo?.(0)
         const percent = `${Math.round(deletedFileCount / totalFileCount * 100)}%`
         process.stdout.write(`${chalk.blue(`${percent}(${deletedFileCount}/${totalFileCount}): ${file}`)}`, 'utf-8')
       }

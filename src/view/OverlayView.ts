@@ -152,15 +152,81 @@ export default class OverlayView<C extends Axis = YAxis> extends View<C> {
       }
       return false
     }).registerEvent('mouseUpEvent', (event: MouseTouchEvent) => {
-      const { instance, figureIndex, figureKey } = overlayStore.getPressedInstanceInfo()
-      if (instance !== null) {
-        instance.onPressedMoveEnd?.({ overlay: instance, figureKey, figureIndex, ...event })
+      const releasePressedInstance = (): void => {
+        const { instance, figureIndex, figureKey } = overlayStore.getPressedInstanceInfo()
+        if (instance !== null) {
+          instance.onPressedMoveEnd?.({ overlay: instance, figureKey, figureIndex, ...event })
+        }
+        overlayStore.setPressedInstanceInfo({
+          paneId, instance: null, figureType: EventOverlayInfoFigureType.None, figureKey: '', figureIndex: -1, attrsIndex: -1
+        })
       }
-      overlayStore.setPressedInstanceInfo({
-        paneId, instance: null, figureType: EventOverlayInfoFigureType.None, figureKey: '', figureIndex: -1, attrsIndex: -1
-      })
+      const progressInstanceInfo = overlayStore.getProgressInstanceInfo()
+      if (
+        event.isDrag === true &&
+        event.pressedStart !== undefined &&
+        progressInstanceInfo?.instance.drawByDrag === true
+      ) {
+        const overlay = progressInstanceInfo.instance
+        let progressInstancePaneId = progressInstanceInfo.paneId
+        if (overlay.isStart()) {
+          overlayStore.updateProgressInstanceInfo(paneId, true)
+          progressInstancePaneId = paneId
+        }
+        if (progressInstancePaneId === paneId && overlay.isDrawing()) {
+          let figureIndex = overlay.points.length - 1
+          let figureKey = `${OVERLAY_FIGURE_KEY_PREFIX}point_${figureIndex}`
+          const advance = (coordinate: Coordinate): void => {
+            overlay.eventMoveForDrawing(this._coordinateToPoint(overlay, coordinate))
+            figureIndex = overlay.points.length - 1
+            figureKey = `${OVERLAY_FIGURE_KEY_PREFIX}point_${figureIndex}`
+            overlay.onDrawing?.({ overlay, figureKey, figureIndex, ...event })
+            overlay.nextStep()
+          }
+
+          // A first-gesture drag supplies both anchors for a two-point overlay.
+          // If one anchor already exists, only the release advances the next step.
+          if (overlay.isStart()) {
+            advance(event.pressedStart)
+          }
+          if (overlay.isDrawing()) {
+            advance(event)
+          }
+          if (!overlay.isDrawing()) {
+            overlayStore.progressInstanceComplete()
+            overlay.onDrawEnd?.({ overlay, figureKey, figureIndex, ...event })
+          }
+          releasePressedInstance()
+          return true
+        }
+      }
+      releasePressedInstance()
       return false
     }).registerEvent('pressedMouseMoveEvent', (event: MouseTouchEvent) => {
+      const progressInstanceInfo = overlayStore.getProgressInstanceInfo()
+      if (
+        event.isDrag === true &&
+        event.pressedStart !== undefined &&
+        progressInstanceInfo?.instance.drawByDrag === true
+      ) {
+        const overlay = progressInstanceInfo.instance
+        let progressInstancePaneId = progressInstanceInfo.paneId
+        if (overlay.isStart()) {
+          overlayStore.updateProgressInstanceInfo(paneId, true)
+          progressInstancePaneId = paneId
+        }
+        if (progressInstancePaneId === paneId && overlay.isDrawing()) {
+          if (overlay.isStart()) {
+            overlay.eventMoveForDrawing(this._coordinateToPoint(overlay, event.pressedStart))
+            overlay.nextStep()
+          }
+          overlay.eventMoveForDrawing(this._coordinateToPoint(overlay, event))
+          const figureIndex = overlay.points.length - 1
+          const figureKey = `${OVERLAY_FIGURE_KEY_PREFIX}point_${figureIndex}`
+          overlay.onDrawing?.({ overlay, figureKey, figureIndex, ...event })
+          return true
+        }
+      }
       const { instance, figureType, figureIndex, figureKey } = overlayStore.getPressedInstanceInfo()
       if (instance !== null) {
         if (instance.lock) {

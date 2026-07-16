@@ -70,6 +70,10 @@ export interface MouseTouchEvent extends Coordinate {
   pageX: number
   pageY: number
   isTouch?: boolean
+  /** Whether the release follows movement beyond the click/tap threshold. */
+  isDrag?: boolean
+  /** Press coordinate before a drag, in the event target coordinate space. */
+  pressedStart?: Coordinate
   preventDefault?: () => void
 }
 
@@ -379,7 +383,10 @@ export default class SyntheticEvent {
     }
 
     if (!this._preventTouchDragProcess) {
-      this._processEvent(this._makeCompatEvent(moveEvent, touch), this._handler.touchMoveEvent)
+      const compatEvent = this._makeCompatEvent(moveEvent, touch)
+      compatEvent.isDrag = this._cancelTap
+      compatEvent.pressedStart = this._touchMoveStartCoordinate ?? undefined
+      this._processEvent(compatEvent, this._handler.touchMoveEvent)
 
       // we should prevent default in case of touch only
       // to prevent scroll of the page
@@ -402,7 +409,10 @@ export default class SyntheticEvent {
     }
     if (this._cancelClick) {
       // if this._cancelClick is true, that means that minimum manhattan distance is already exceeded
-      this._processEvent(this._makeCompatEvent(moveEvent), this._handler.pressedMouseMoveEvent)
+      const compatEvent = this._makeCompatEvent(moveEvent)
+      compatEvent.isDrag = true
+      compatEvent.pressedStart = this._mouseMoveStartCoordinate ?? undefined
+      this._processEvent(compatEvent, this._handler.pressedMouseMoveEvent)
     }
   }
 
@@ -468,6 +478,7 @@ export default class SyntheticEvent {
       return
     }
 
+    const pressedStart = this._touchMoveStartCoordinate
     this._activeTouchId = null
     this._lastTouchEventTimeStamp = this._eventTimeStamp(touchEndEvent)
     this._clearLongTapTimeout()
@@ -479,6 +490,8 @@ export default class SyntheticEvent {
     }
 
     const compatEvent = this._makeCompatEvent(touchEndEvent, touch)
+    compatEvent.isDrag = this._cancelTap
+    compatEvent.pressedStart = pressedStart ?? undefined
     this._processEvent(compatEvent, this._handler.touchEndEvent)
     ++this._tapCount
 
@@ -522,6 +535,8 @@ export default class SyntheticEvent {
     }
 
     const compatEvent = this._makeCompatEvent(mouseUpEvent)
+    compatEvent.isDrag = this._cancelClick
+    compatEvent.pressedStart = this._mouseMoveStartCoordinate ?? undefined
 
     this._mouseMoveStartCoordinate = null
     this._mousePressed = false

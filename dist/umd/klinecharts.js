@@ -1255,9 +1255,10 @@ var OverlayImp = /** @class */ (function () {
         this.points = [];
         this._prevPressedPoint = null;
         this._prevPressedPoints = [];
-        var mode = overlay.mode, modeSensitivity = overlay.modeSensitivity, extendData = overlay.extendData, styles = overlay.styles, name = overlay.name, totalStep = overlay.totalStep, lock = overlay.lock, visible = overlay.visible, zLevel = overlay.zLevel, needDefaultPointFigure = overlay.needDefaultPointFigure, needDefaultXAxisFigure = overlay.needDefaultXAxisFigure, needDefaultYAxisFigure = overlay.needDefaultYAxisFigure, createPointFigures = overlay.createPointFigures, createXAxisFigures = overlay.createXAxisFigures, createYAxisFigures = overlay.createYAxisFigures, performEventPressedMove = overlay.performEventPressedMove, performEventMoveForDrawing = overlay.performEventMoveForDrawing, pressedOtherMovePointIndexes = overlay.pressedOtherMovePointIndexes, onDrawStart = overlay.onDrawStart, onDrawing = overlay.onDrawing, onDrawEnd = overlay.onDrawEnd, onClick = overlay.onClick, onDoubleClick = overlay.onDoubleClick, onRightClick = overlay.onRightClick, onPressedMoveStart = overlay.onPressedMoveStart, onPressedMoving = overlay.onPressedMoving, onPressedMoveEnd = overlay.onPressedMoveEnd, onMouseEnter = overlay.onMouseEnter, onMouseLeave = overlay.onMouseLeave, onRemoved = overlay.onRemoved, onSelected = overlay.onSelected, onDeselected = overlay.onDeselected;
+        var mode = overlay.mode, modeSensitivity = overlay.modeSensitivity, extendData = overlay.extendData, styles = overlay.styles, name = overlay.name, totalStep = overlay.totalStep, drawByDrag = overlay.drawByDrag, lock = overlay.lock, visible = overlay.visible, zLevel = overlay.zLevel, needDefaultPointFigure = overlay.needDefaultPointFigure, needDefaultXAxisFigure = overlay.needDefaultXAxisFigure, needDefaultYAxisFigure = overlay.needDefaultYAxisFigure, createPointFigures = overlay.createPointFigures, createXAxisFigures = overlay.createXAxisFigures, createYAxisFigures = overlay.createYAxisFigures, performEventPressedMove = overlay.performEventPressedMove, performEventMoveForDrawing = overlay.performEventMoveForDrawing, pressedOtherMovePointIndexes = overlay.pressedOtherMovePointIndexes, onDrawStart = overlay.onDrawStart, onDrawing = overlay.onDrawing, onDrawEnd = overlay.onDrawEnd, onClick = overlay.onClick, onDoubleClick = overlay.onDoubleClick, onRightClick = overlay.onRightClick, onPressedMoveStart = overlay.onPressedMoveStart, onPressedMoving = overlay.onPressedMoving, onPressedMoveEnd = overlay.onPressedMoveEnd, onMouseEnter = overlay.onMouseEnter, onMouseLeave = overlay.onMouseLeave, onRemoved = overlay.onRemoved, onSelected = overlay.onSelected, onDeselected = overlay.onDeselected;
         this.name = name;
         this.totalStep = (!isNumber(totalStep) || totalStep < 2) ? 1 : totalStep;
+        this.drawByDrag = drawByDrag !== null && drawByDrag !== void 0 ? drawByDrag : false;
         this.lock = lock !== null && lock !== void 0 ? lock : false;
         this.visible = visible !== null && visible !== void 0 ? visible : true;
         this.zLevel = zLevel !== null && zLevel !== void 0 ? zLevel : 0;
@@ -8529,25 +8530,88 @@ var OverlayView = /** @class */ (function (_super) {
             return false;
         }).registerEvent('mouseUpEvent', function (event) {
             var _a;
-            var _b = overlayStore.getPressedInstanceInfo(), instance = _b.instance, figureIndex = _b.figureIndex, figureKey = _b.figureKey;
-            if (instance !== null) {
-                (_a = instance.onPressedMoveEnd) === null || _a === void 0 ? void 0 : _a.call(instance, __assign({ overlay: instance, figureKey: figureKey, figureIndex: figureIndex }, event));
+            var releasePressedInstance = function () {
+                var _a;
+                var _b = overlayStore.getPressedInstanceInfo(), instance = _b.instance, figureIndex = _b.figureIndex, figureKey = _b.figureKey;
+                if (instance !== null) {
+                    (_a = instance.onPressedMoveEnd) === null || _a === void 0 ? void 0 : _a.call(instance, __assign({ overlay: instance, figureKey: figureKey, figureIndex: figureIndex }, event));
+                }
+                overlayStore.setPressedInstanceInfo({
+                    paneId: paneId,
+                    instance: null, figureType: 0 /* EventOverlayInfoFigureType.None */, figureKey: '', figureIndex: -1, attrsIndex: -1
+                });
+            };
+            var progressInstanceInfo = overlayStore.getProgressInstanceInfo();
+            if (event.isDrag === true &&
+                event.pressedStart !== undefined &&
+                (progressInstanceInfo === null || progressInstanceInfo === void 0 ? void 0 : progressInstanceInfo.instance.drawByDrag) === true) {
+                var overlay_1 = progressInstanceInfo.instance;
+                var progressInstancePaneId = progressInstanceInfo.paneId;
+                if (overlay_1.isStart()) {
+                    overlayStore.updateProgressInstanceInfo(paneId, true);
+                    progressInstancePaneId = paneId;
+                }
+                if (progressInstancePaneId === paneId && overlay_1.isDrawing()) {
+                    var figureIndex_1 = overlay_1.points.length - 1;
+                    var figureKey_1 = "".concat(OVERLAY_FIGURE_KEY_PREFIX, "point_").concat(figureIndex_1);
+                    var advance = function (coordinate) {
+                        var _a;
+                        overlay_1.eventMoveForDrawing(_this._coordinateToPoint(overlay_1, coordinate));
+                        figureIndex_1 = overlay_1.points.length - 1;
+                        figureKey_1 = "".concat(OVERLAY_FIGURE_KEY_PREFIX, "point_").concat(figureIndex_1);
+                        (_a = overlay_1.onDrawing) === null || _a === void 0 ? void 0 : _a.call(overlay_1, __assign({ overlay: overlay_1, figureKey: figureKey_1, figureIndex: figureIndex_1 }, event));
+                        overlay_1.nextStep();
+                    };
+                    // A first-gesture drag supplies both anchors for a two-point overlay.
+                    // If one anchor already exists, only the release advances the next step.
+                    if (overlay_1.isStart()) {
+                        advance(event.pressedStart);
+                    }
+                    if (overlay_1.isDrawing()) {
+                        advance(event);
+                    }
+                    if (!overlay_1.isDrawing()) {
+                        overlayStore.progressInstanceComplete();
+                        (_a = overlay_1.onDrawEnd) === null || _a === void 0 ? void 0 : _a.call(overlay_1, __assign({ overlay: overlay_1, figureKey: figureKey_1, figureIndex: figureIndex_1 }, event));
+                    }
+                    releasePressedInstance();
+                    return true;
+                }
             }
-            overlayStore.setPressedInstanceInfo({
-                paneId: paneId,
-                instance: null, figureType: 0 /* EventOverlayInfoFigureType.None */, figureKey: '', figureIndex: -1, attrsIndex: -1
-            });
+            releasePressedInstance();
             return false;
         }).registerEvent('pressedMouseMoveEvent', function (event) {
-            var _a, _b;
-            var _c = overlayStore.getPressedInstanceInfo(), instance = _c.instance, figureType = _c.figureType, figureIndex = _c.figureIndex, figureKey = _c.figureKey;
+            var _a, _b, _c;
+            var progressInstanceInfo = overlayStore.getProgressInstanceInfo();
+            if (event.isDrag === true &&
+                event.pressedStart !== undefined &&
+                (progressInstanceInfo === null || progressInstanceInfo === void 0 ? void 0 : progressInstanceInfo.instance.drawByDrag) === true) {
+                var overlay = progressInstanceInfo.instance;
+                var progressInstancePaneId = progressInstanceInfo.paneId;
+                if (overlay.isStart()) {
+                    overlayStore.updateProgressInstanceInfo(paneId, true);
+                    progressInstancePaneId = paneId;
+                }
+                if (progressInstancePaneId === paneId && overlay.isDrawing()) {
+                    if (overlay.isStart()) {
+                        overlay.eventMoveForDrawing(_this._coordinateToPoint(overlay, event.pressedStart));
+                        overlay.nextStep();
+                    }
+                    overlay.eventMoveForDrawing(_this._coordinateToPoint(overlay, event));
+                    var figureIndex_2 = overlay.points.length - 1;
+                    var figureKey_2 = "".concat(OVERLAY_FIGURE_KEY_PREFIX, "point_").concat(figureIndex_2);
+                    (_a = overlay.onDrawing) === null || _a === void 0 ? void 0 : _a.call(overlay, __assign({ overlay: overlay, figureKey: figureKey_2, figureIndex: figureIndex_2 }, event));
+                    return true;
+                }
+            }
+            var _d = overlayStore.getPressedInstanceInfo(), instance = _d.instance, figureType = _d.figureType, figureIndex = _d.figureIndex, figureKey = _d.figureKey;
             if (instance !== null) {
                 if (instance.lock) {
                     // Locked overlays must not swallow the drag: fall through so the
                     // chart pans instead of a dead drag on the pressed overlay.
                     return false;
                 }
-                if (!((_b = (_a = instance.onPressedMoving) === null || _a === void 0 ? void 0 : _a.call(instance, __assign({ overlay: instance, figureIndex: figureIndex, figureKey: figureKey }, event))) !== null && _b !== void 0 ? _b : false)) {
+                if (!((_c = (_b = instance.onPressedMoving) === null || _b === void 0 ? void 0 : _b.call(instance, __assign({ overlay: instance, figureIndex: figureIndex, figureKey: figureKey }, event))) !== null && _c !== void 0 ? _c : false)) {
                     var point = _this._coordinateToPoint(instance, event);
                     if (figureType === 1 /* EventOverlayInfoFigureType.Point */) {
                         instance.eventPressedPointMove(point, figureIndex);
@@ -12042,6 +12106,7 @@ var SyntheticEvent = /** @class */ (function () {
         this._preventDefault(mouseEvent);
     };
     SyntheticEvent.prototype._touchMoveHandler = function (moveEvent) {
+        var _a;
         var touch = this._touchWithId(moveEvent.changedTouches, this._activeTouchId);
         if (touch === null) {
             return;
@@ -12081,13 +12146,17 @@ var SyntheticEvent = /** @class */ (function () {
             this._resetTapTimeout();
         }
         if (!this._preventTouchDragProcess) {
-            this._processEvent(this._makeCompatEvent(moveEvent, touch), this._handler.touchMoveEvent);
+            var compatEvent = this._makeCompatEvent(moveEvent, touch);
+            compatEvent.isDrag = this._cancelTap;
+            compatEvent.pressedStart = (_a = this._touchMoveStartCoordinate) !== null && _a !== void 0 ? _a : undefined;
+            this._processEvent(compatEvent, this._handler.touchMoveEvent);
             // we should prevent default in case of touch only
             // to prevent scroll of the page
             // preventDefault(moveEvent)
         }
     };
     SyntheticEvent.prototype._mouseMoveWithDownHandler = function (moveEvent) {
+        var _a;
         if (moveEvent.button !== 0 /* MouseEventButton.Left */) {
             return;
         }
@@ -12100,7 +12169,10 @@ var SyntheticEvent = /** @class */ (function () {
         }
         if (this._cancelClick) {
             // if this._cancelClick is true, that means that minimum manhattan distance is already exceeded
-            this._processEvent(this._makeCompatEvent(moveEvent), this._handler.pressedMouseMoveEvent);
+            var compatEvent = this._makeCompatEvent(moveEvent);
+            compatEvent.isDrag = true;
+            compatEvent.pressedStart = (_a = this._mouseMoveStartCoordinate) !== null && _a !== void 0 ? _a : undefined;
+            this._processEvent(compatEvent, this._handler.pressedMouseMoveEvent);
         }
     };
     SyntheticEvent.prototype._mouseTouchMoveWithDownInfo = function (currentCoordinate, startCoordinate) {
@@ -12120,6 +12192,7 @@ var SyntheticEvent = /** @class */ (function () {
         if (touch === null) {
             return;
         }
+        var pressedStart = this._touchMoveStartCoordinate;
         this._activeTouchId = null;
         this._lastTouchEventTimeStamp = this._eventTimeStamp(touchEndEvent);
         this._clearLongTapTimeout();
@@ -12129,6 +12202,8 @@ var SyntheticEvent = /** @class */ (function () {
             this._unsubscribeRootTouchEvents = null;
         }
         var compatEvent = this._makeCompatEvent(touchEndEvent, touch);
+        compatEvent.isDrag = this._cancelTap;
+        compatEvent.pressedStart = pressedStart !== null && pressedStart !== void 0 ? pressedStart : undefined;
         this._processEvent(compatEvent, this._handler.touchEndEvent);
         ++this._tapCount;
         if (this._tapTimeoutId !== null && this._tapCount > 1) {
@@ -12163,10 +12238,13 @@ var SyntheticEvent = /** @class */ (function () {
         }
     };
     SyntheticEvent.prototype._mouseUpHandler = function (mouseUpEvent) {
+        var _a;
         if (mouseUpEvent.button !== 0 /* MouseEventButton.Left */) {
             return;
         }
         var compatEvent = this._makeCompatEvent(mouseUpEvent);
+        compatEvent.isDrag = this._cancelClick;
+        compatEvent.pressedStart = (_a = this._mouseMoveStartCoordinate) !== null && _a !== void 0 ? _a : undefined;
         this._mouseMoveStartCoordinate = null;
         this._mousePressed = false;
         if (this._unsubscribeRootMouseEvents !== null) {
@@ -12960,7 +13038,11 @@ var Event = /** @class */ (function () {
             var name_9 = widget.getName();
             switch (name_9) {
                 case WidgetNameConstants.MAIN: {
-                    widget.dispatchEvent('mouseUpEvent', event_10);
+                    var consumed = widget.dispatchEvent('mouseUpEvent', event_10);
+                    if (consumed) {
+                        this._chart.updatePane(1 /* UpdateLevel.Overlay */);
+                        return true;
+                    }
                     if (this._startScrollCoordinate !== null) {
                         var time = new Date().getTime() - this._flingStartTime;
                         var distance = event_10.x - this._startScrollCoordinate.x;
@@ -13112,7 +13194,11 @@ var Event = /** @class */ (function () {
     Event.prototype._makeWidgetEvent = function (event, widget) {
         var _a, _b, _c;
         var bounding = (_a = widget === null || widget === void 0 ? void 0 : widget.getBounding()) !== null && _a !== void 0 ? _a : null;
-        return __assign(__assign({}, event), { x: event.x - ((_b = bounding === null || bounding === void 0 ? void 0 : bounding.left) !== null && _b !== void 0 ? _b : 0), y: event.y - ((_c = bounding === null || bounding === void 0 ? void 0 : bounding.top) !== null && _c !== void 0 ? _c : 0) });
+        var left = (_b = bounding === null || bounding === void 0 ? void 0 : bounding.left) !== null && _b !== void 0 ? _b : 0;
+        var top = (_c = bounding === null || bounding === void 0 ? void 0 : bounding.top) !== null && _c !== void 0 ? _c : 0;
+        return __assign(__assign({}, event), { x: event.x - left, y: event.y - top, pressedStart: event.pressedStart === undefined
+                ? undefined
+                : { x: event.pressedStart.x - left, y: event.pressedStart.y - top } });
     };
     Event.prototype.destroy = function () {
         this._container.removeEventListener('keydown', this._boundKeyBoardDownEvent);
