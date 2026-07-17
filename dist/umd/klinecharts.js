@@ -905,6 +905,229 @@ function calcTextWidth(text, size, weight, family) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * Binary search for the nearest result
+ * @param dataList
+ * @param valueKey
+ * @param targetValue
+ * @return {number}
+ */
+function binarySearchNearest(dataList, valueKey, targetValue) {
+    var left = 0;
+    var right = 0;
+    for (right = dataList.length - 1; left !== right;) {
+        var midIndex = Math.floor((right + left) / 2);
+        var mid = right - left;
+        var midValue = dataList[midIndex][valueKey];
+        if (targetValue === dataList[left][valueKey]) {
+            return left;
+        }
+        if (targetValue === dataList[right][valueKey]) {
+            return right;
+        }
+        if (targetValue === midValue) {
+            return midIndex;
+        }
+        if (targetValue > midValue) {
+            left = midIndex;
+        }
+        else {
+            right = midIndex;
+        }
+        if (mid <= 2) {
+            break;
+        }
+    }
+    return left;
+}
+/**
+ * 优化数字
+ * @param value
+ * @return {number|number}
+ */
+function nice(value) {
+    var exponent = Math.floor(log10(value));
+    var exp10 = index10(exponent);
+    var f = value / exp10; // 1 <= f < 10
+    var nf = 0;
+    if (f < 1.5) {
+        nf = 1;
+    }
+    else if (f < 2.5) {
+        nf = 2;
+    }
+    else if (f < 3.5) {
+        nf = 3;
+    }
+    else if (f < 4.5) {
+        nf = 4;
+    }
+    else if (f < 5.5) {
+        nf = 5;
+    }
+    else if (f < 6.5) {
+        nf = 6;
+    }
+    else {
+        nf = 8;
+    }
+    value = nf * exp10;
+    return exponent >= -20 ? +value.toFixed(exponent < 0 ? -exponent : 0) : value;
+}
+/**
+ * 四舍五入
+ * @param value
+ * @param precision
+ * @return {number}
+ */
+function round(value, precision) {
+    if (precision == null) {
+        precision = 10;
+    }
+    precision = Math.min(Math.max(0, precision), 20);
+    var v = (+value).toFixed(precision);
+    return +v;
+}
+/**
+ * 获取小数位数
+ * @param value
+ * @return {number|number}
+ */
+function getPrecision(value) {
+    var str = value.toString();
+    var eIndex = str.indexOf('e');
+    if (eIndex > 0) {
+        var precision = +str.slice(eIndex + 1);
+        return precision < 0 ? -precision : 0;
+    }
+    else {
+        var dotIndex = str.indexOf('.');
+        return dotIndex < 0 ? 0 : str.length - 1 - dotIndex;
+    }
+}
+function getMaxMin(dataList, maxKey, minKey) {
+    var maxMin = [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+    dataList.forEach(function (data) {
+        var _a, _b;
+        maxMin[0] = Math.max(((_a = data[maxKey]) !== null && _a !== void 0 ? _a : data), maxMin[0]);
+        maxMin[1] = Math.min(((_b = data[minKey]) !== null && _b !== void 0 ? _b : data), maxMin[1]);
+    });
+    return maxMin;
+}
+/**
+ * 10为底的对数函数
+ * @param value
+ * @return {number}
+ */
+function log10(value) {
+    return Math.log(value) / Math.log(10);
+}
+/**
+ * 10的指数函数
+ * @param value
+ * @return {number}
+ */
+function index10(value) {
+    return Math.pow(10, value);
+}
+
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ * http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var BAR_TIMESPAN_LOOKBACK = 8;
+/**
+ * Trade fork: infer the bar timespan (ms) from the tail of the data list.
+ * Uses the minimum positive delta over the last few bars so a single data
+ * gap does not double the inferred span. Returns null when the list has
+ * fewer than 2 bars or no positive delta exists in the lookback window.
+ */
+function inferBarTimespan(dataList) {
+    var count = dataList.length;
+    if (count < 2) {
+        return null;
+    }
+    var best = null;
+    var lookback = Math.min(count - 1, BAR_TIMESPAN_LOOKBACK);
+    for (var i = 0; i < lookback; i++) {
+        var span = dataList[count - 1 - i].timestamp - dataList[count - 2 - i].timestamp;
+        if (span > 0 && (best === null || span < best)) {
+            best = span;
+        }
+    }
+    return best;
+}
+/**
+ * Trade fork: dataIndex -> timestamp that keeps working outside the loaded
+ * range by extrapolating along the inferred bar grid (TV-style whitespace
+ * time). In-range indexes return the real bar timestamp; out-of-range ones
+ * return null only when no bar timespan can be inferred.
+ */
+function extrapolateTimestampFromDataIndex(dataList, dataIndex) {
+    var count = dataList.length;
+    if (count === 0) {
+        return null;
+    }
+    if (dataIndex >= 0 && dataIndex < count) {
+        return dataList[dataIndex].timestamp;
+    }
+    var span = inferBarTimespan(dataList);
+    if (span === null) {
+        return null;
+    }
+    if (dataIndex >= count) {
+        return dataList[count - 1].timestamp + (dataIndex - (count - 1)) * span;
+    }
+    return dataList[0].timestamp + dataIndex * span;
+}
+/**
+ * Trade fork: timestamp -> dataIndex that extrapolates outside the loaded
+ * range instead of clamping to the edge bars (binarySearchNearest clamps,
+ * which pins future-anchored overlay points onto the last bar). Falls back
+ * to the clamped edge index when no bar timespan can be inferred.
+ */
+function extrapolateDataIndexFromTimestamp(dataList, timestamp) {
+    var count = dataList.length;
+    if (count === 0) {
+        return 0;
+    }
+    var firstTimestamp = dataList[0].timestamp;
+    var lastTimestamp = dataList[count - 1].timestamp;
+    if (timestamp >= firstTimestamp && timestamp <= lastTimestamp) {
+        return binarySearchNearest(dataList, 'timestamp', timestamp);
+    }
+    var span = inferBarTimespan(dataList);
+    if (span === null) {
+        return timestamp > lastTimestamp ? count - 1 : 0;
+    }
+    if (timestamp > lastTimestamp) {
+        return (count - 1) + Math.round((timestamp - lastTimestamp) / span);
+    }
+    return Math.round((timestamp - firstTimestamp) / span);
+}
+
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ * http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 exports.ActionType = void 0;
 (function (ActionType) {
     ActionType["OnDataReady"] = "onDataReady";
@@ -1255,7 +1478,7 @@ var OverlayImp = /** @class */ (function () {
         this.points = [];
         this._prevPressedPoint = null;
         this._prevPressedPoints = [];
-        var mode = overlay.mode, modeSensitivity = overlay.modeSensitivity, extendData = overlay.extendData, styles = overlay.styles, name = overlay.name, totalStep = overlay.totalStep, drawByDrag = overlay.drawByDrag, lock = overlay.lock, visible = overlay.visible, zLevel = overlay.zLevel, needDefaultPointFigure = overlay.needDefaultPointFigure, needDefaultXAxisFigure = overlay.needDefaultXAxisFigure, needDefaultYAxisFigure = overlay.needDefaultYAxisFigure, createPointFigures = overlay.createPointFigures, createXAxisFigures = overlay.createXAxisFigures, createYAxisFigures = overlay.createYAxisFigures, performEventPressedMove = overlay.performEventPressedMove, performEventMoveForDrawing = overlay.performEventMoveForDrawing, pressedOtherMovePointIndexes = overlay.pressedOtherMovePointIndexes, onDrawStart = overlay.onDrawStart, onDrawing = overlay.onDrawing, onDrawEnd = overlay.onDrawEnd, onClick = overlay.onClick, onDoubleClick = overlay.onDoubleClick, onRightClick = overlay.onRightClick, onPressedMoveStart = overlay.onPressedMoveStart, onPressedMoving = overlay.onPressedMoving, onPressedMoveEnd = overlay.onPressedMoveEnd, onMouseEnter = overlay.onMouseEnter, onMouseLeave = overlay.onMouseLeave, onRemoved = overlay.onRemoved, onSelected = overlay.onSelected, onDeselected = overlay.onDeselected;
+        var mode = overlay.mode, modeSensitivity = overlay.modeSensitivity, extendData = overlay.extendData, styles = overlay.styles, name = overlay.name, totalStep = overlay.totalStep, drawByDrag = overlay.drawByDrag, lock = overlay.lock, visible = overlay.visible, zLevel = overlay.zLevel, needDefaultPointFigure = overlay.needDefaultPointFigure, needDefaultXAxisFigure = overlay.needDefaultXAxisFigure, needDefaultYAxisFigure = overlay.needDefaultYAxisFigure, createPointFigures = overlay.createPointFigures, createXAxisFigures = overlay.createXAxisFigures, createYAxisFigures = overlay.createYAxisFigures, performEventPressedMove = overlay.performEventPressedMove, performEventMoveForDrawing = overlay.performEventMoveForDrawing, pressedOtherMovePointIndexes = overlay.pressedOtherMovePointIndexes, performEventPressedOtherMove = overlay.performEventPressedOtherMove, onDrawStart = overlay.onDrawStart, onDrawing = overlay.onDrawing, onDrawEnd = overlay.onDrawEnd, onClick = overlay.onClick, onDoubleClick = overlay.onDoubleClick, onRightClick = overlay.onRightClick, onPressedMoveStart = overlay.onPressedMoveStart, onPressedMoving = overlay.onPressedMoving, onPressedMoveEnd = overlay.onPressedMoveEnd, onMouseEnter = overlay.onMouseEnter, onMouseLeave = overlay.onMouseLeave, onRemoved = overlay.onRemoved, onSelected = overlay.onSelected, onDeselected = overlay.onDeselected;
         this.name = name;
         this.totalStep = (!isNumber(totalStep) || totalStep < 2) ? 1 : totalStep;
         this.drawByDrag = drawByDrag !== null && drawByDrag !== void 0 ? drawByDrag : false;
@@ -1275,6 +1498,7 @@ var OverlayImp = /** @class */ (function () {
         this.performEventPressedMove = performEventPressedMove !== null && performEventPressedMove !== void 0 ? performEventPressedMove : null;
         this.performEventMoveForDrawing = performEventMoveForDrawing !== null && performEventMoveForDrawing !== void 0 ? performEventMoveForDrawing : null;
         this.pressedOtherMovePointIndexes = pressedOtherMovePointIndexes !== null && pressedOtherMovePointIndexes !== void 0 ? pressedOtherMovePointIndexes : null;
+        this.performEventPressedOtherMove = performEventPressedOtherMove !== null && performEventPressedOtherMove !== void 0 ? performEventPressedOtherMove : null;
         this.onDrawStart = onDrawStart !== null && onDrawStart !== void 0 ? onDrawStart : null;
         this.onDrawing = onDrawing !== null && onDrawing !== void 0 ? onDrawing : null;
         this.onDrawEnd = onDrawEnd !== null && onDrawEnd !== void 0 ? onDrawEnd : null;
@@ -1549,7 +1773,7 @@ var OverlayImp = /** @class */ (function () {
         this._prevPressedPoints = clone(this.points);
     };
     OverlayImp.prototype.eventPressedOtherMove = function (point, timeScaleStore, figureKey) {
-        var _a, _b;
+        var _a, _b, _c;
         if (this._prevPressedPoint !== null) {
             var difDataIndex_1;
             if (isNumber(point.dataIndex) && isNumber(this._prevPressedPoint.dataIndex)) {
@@ -1571,17 +1795,24 @@ var OverlayImp = /** @class */ (function () {
                     return __assign({}, p);
                 }
                 if (isNumber(p.timestamp)) {
-                    p.dataIndex = timeScaleStore.timestampToDataIndex(p.timestamp);
+                    p.dataIndex = timeScaleStore.timestampToDataIndexFlex(p.timestamp);
                 }
                 var newPoint = __assign({}, p);
                 if (isNumber(difDataIndex_1) && isNumber(p.dataIndex)) {
                     newPoint.dataIndex = p.dataIndex + difDataIndex_1;
-                    newPoint.timestamp = (_a = timeScaleStore.dataIndexToTimestamp(newPoint.dataIndex)) !== null && _a !== void 0 ? _a : undefined;
+                    newPoint.timestamp = (_a = timeScaleStore.dataIndexToTimestampFlex(newPoint.dataIndex)) !== null && _a !== void 0 ? _a : undefined;
                 }
                 if (isNumber(difValue_1) && isNumber(p.value)) {
                     newPoint.value = p.value + difValue_1;
                 }
                 return newPoint;
+            });
+            // Trade fork: after a scoped translate the overlay may need to restore
+            // cross-point invariants (e.g. a channel keeping both edges time-aligned).
+            (_c = this.performEventPressedOtherMove) === null || _c === void 0 ? void 0 : _c.call(this, {
+                key: figureKey !== null && figureKey !== void 0 ? figureKey : '',
+                points: this.points,
+                includedIndexes: includedIndexes_1
             });
         }
     };
@@ -1779,145 +2010,6 @@ function createDom(tagName, styles) {
         (dom.style)[key] = (_a = s[key]) !== null && _a !== void 0 ? _a : '';
     }
     return dom;
-}
-
-/**
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
-
- * http://www.apache.org/licenses/LICENSE-2.0
-
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-/**
- * Binary search for the nearest result
- * @param dataList
- * @param valueKey
- * @param targetValue
- * @return {number}
- */
-function binarySearchNearest(dataList, valueKey, targetValue) {
-    var left = 0;
-    var right = 0;
-    for (right = dataList.length - 1; left !== right;) {
-        var midIndex = Math.floor((right + left) / 2);
-        var mid = right - left;
-        var midValue = dataList[midIndex][valueKey];
-        if (targetValue === dataList[left][valueKey]) {
-            return left;
-        }
-        if (targetValue === dataList[right][valueKey]) {
-            return right;
-        }
-        if (targetValue === midValue) {
-            return midIndex;
-        }
-        if (targetValue > midValue) {
-            left = midIndex;
-        }
-        else {
-            right = midIndex;
-        }
-        if (mid <= 2) {
-            break;
-        }
-    }
-    return left;
-}
-/**
- * 优化数字
- * @param value
- * @return {number|number}
- */
-function nice(value) {
-    var exponent = Math.floor(log10(value));
-    var exp10 = index10(exponent);
-    var f = value / exp10; // 1 <= f < 10
-    var nf = 0;
-    if (f < 1.5) {
-        nf = 1;
-    }
-    else if (f < 2.5) {
-        nf = 2;
-    }
-    else if (f < 3.5) {
-        nf = 3;
-    }
-    else if (f < 4.5) {
-        nf = 4;
-    }
-    else if (f < 5.5) {
-        nf = 5;
-    }
-    else if (f < 6.5) {
-        nf = 6;
-    }
-    else {
-        nf = 8;
-    }
-    value = nf * exp10;
-    return exponent >= -20 ? +value.toFixed(exponent < 0 ? -exponent : 0) : value;
-}
-/**
- * 四舍五入
- * @param value
- * @param precision
- * @return {number}
- */
-function round(value, precision) {
-    if (precision == null) {
-        precision = 10;
-    }
-    precision = Math.min(Math.max(0, precision), 20);
-    var v = (+value).toFixed(precision);
-    return +v;
-}
-/**
- * 获取小数位数
- * @param value
- * @return {number|number}
- */
-function getPrecision(value) {
-    var str = value.toString();
-    var eIndex = str.indexOf('e');
-    if (eIndex > 0) {
-        var precision = +str.slice(eIndex + 1);
-        return precision < 0 ? -precision : 0;
-    }
-    else {
-        var dotIndex = str.indexOf('.');
-        return dotIndex < 0 ? 0 : str.length - 1 - dotIndex;
-    }
-}
-function getMaxMin(dataList, maxKey, minKey) {
-    var maxMin = [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-    dataList.forEach(function (data) {
-        var _a, _b;
-        maxMin[0] = Math.max(((_a = data[maxKey]) !== null && _a !== void 0 ? _a : data), maxMin[0]);
-        maxMin[1] = Math.min(((_b = data[minKey]) !== null && _b !== void 0 ? _b : data), maxMin[1]);
-    });
-    return maxMin;
-}
-/**
- * 10为底的对数函数
- * @param value
- * @return {number}
- */
-function log10(value) {
-    return Math.log(value) / Math.log(10);
-}
-/**
- * 10的指数函数
- * @param value
- * @return {number}
- */
-function index10(value) {
-    return Math.pow(10, value);
 }
 
 /**
@@ -2227,6 +2319,15 @@ var TimeScaleStore = /** @class */ (function () {
         var _a;
         var data = this.getDataByDataIndex(dataIndex);
         return (_a = data === null || data === void 0 ? void 0 : data.timestamp) !== null && _a !== void 0 ? _a : null;
+    };
+    // Trade fork: overlay anchors may sit in the whitespace beyond the loaded
+    // range (TV-style future anchors). These variants extrapolate along the
+    // inferred bar grid instead of returning null / clamping to the edge bars.
+    TimeScaleStore.prototype.dataIndexToTimestampFlex = function (dataIndex) {
+        return extrapolateTimestampFromDataIndex(this._chartStore.getDataList(), dataIndex);
+    };
+    TimeScaleStore.prototype.timestampToDataIndexFlex = function (timestamp) {
+        return extrapolateDataIndexFromTimestamp(this._chartStore.getDataList(), timestamp);
     };
     TimeScaleStore.prototype.timestampToDataIndex = function (timestamp) {
         var dataList = this._chartStore.getDataList();
@@ -8733,7 +8834,9 @@ var OverlayView = /** @class */ (function (_super) {
         if (this.coordinateToPointTimestampDataIndexFlag()) {
             var xAxis = chart.getXAxisPane().getAxisComponent();
             var dataIndex = xAxis.convertFromPixel(coordinate.x);
-            var timestamp = (_a = timeScaleStore.dataIndexToTimestamp(dataIndex)) !== null && _a !== void 0 ? _a : undefined;
+            // Trade fork: extrapolate along the bar grid so anchors dropped in the
+            // whitespace beyond the loaded range still resolve a timestamp.
+            var timestamp = (_a = timeScaleStore.dataIndexToTimestampFlex(dataIndex)) !== null && _a !== void 0 ? _a : undefined;
             point.dataIndex = dataIndex;
             point.timestamp = timestamp;
         }
@@ -8867,7 +8970,9 @@ var OverlayView = /** @class */ (function (_super) {
             var _a, _b;
             var dataIndex = point.dataIndex;
             if (isNumber(point.timestamp)) {
-                dataIndex = timeScaleStore.timestampToDataIndex(point.timestamp);
+                // Trade fork: keep future/past-anchored points on the extrapolated bar
+                // grid instead of clamping them onto the edge bars.
+                dataIndex = timeScaleStore.timestampToDataIndexFlex(point.timestamp);
             }
             var coordinate = { x: 0, y: 0 };
             if (isNumber(dataIndex)) {
@@ -14204,6 +14309,9 @@ var utils = {
     getLinearSlopeIntercept: getLinearSlopeIntercept,
     getLinearYFromSlopeIntercept: getLinearYFromSlopeIntercept,
     getLinearYFromCoordinates: getLinearYFromCoordinates,
+    inferBarTimespan: inferBarTimespan,
+    extrapolateTimestampFromDataIndex: extrapolateTimestampFromDataIndex,
+    extrapolateDataIndexFromTimestamp: extrapolateDataIndexFromTimestamp,
     checkCoordinateOnArc: checkCoordinateOnArc,
     checkCoordinateOnCircle: checkCoordinateOnCircle,
     checkCoordinateOnLine: checkCoordinateOnLine,

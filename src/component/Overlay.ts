@@ -225,6 +225,13 @@ export interface Overlay {
   pressedOtherMovePointIndexes: Nullable<(params: { key: string, points: Array<Partial<Point>> }) => Nullable<number[]>>
 
   /**
+   * Called after a pressed move on a non-point figure has translated the
+   * points, so the overlay can restore cross-point invariants in place.
+   * Trade fork extension (companion to pressedOtherMovePointIndexes).
+   */
+  performEventPressedOtherMove: Nullable<(params: { key: string, points: Array<Partial<Point>>, includedIndexes: Nullable<number[]> }) => void>
+
+  /**
    * Start drawing event
    */
   onDrawStart: Nullable<OverlayEventCallback>
@@ -296,7 +303,7 @@ export interface Overlay {
 }
 
 export type OverlayTemplate = ExcludePickPartial<Omit<Overlay, 'id' | 'groupId' | 'paneId' | 'points' | 'currentStep'>, 'name'>
-export type OverlayCreate = ExcludePickPartial<Omit<Overlay, 'paneId' | 'currentStep' | 'totalStep' | 'drawByDrag' | 'createPointFigures' | 'createXAxisFigures' | 'createYAxisFigures' | 'performEventPressedMove' | 'performEventMoveForDrawing' | 'pressedOtherMovePointIndexes'>, 'name'>
+export type OverlayCreate = ExcludePickPartial<Omit<Overlay, 'paneId' | 'currentStep' | 'totalStep' | 'drawByDrag' | 'createPointFigures' | 'createXAxisFigures' | 'createYAxisFigures' | 'performEventPressedMove' | 'performEventMoveForDrawing' | 'pressedOtherMovePointIndexes' | 'performEventPressedOtherMove'>, 'name'>
 export type OverlayRemove = Partial<Pick<Overlay, 'id' | 'groupId' | 'name'>>
 export type OverlayInnerConstructor = new () => OverlayImp
 export type OverlayConstructor = new () => Overlay
@@ -333,6 +340,7 @@ export default abstract class OverlayImp implements Overlay {
   performEventPressedMove: Nullable<(params: OverlayPerformEventParams) => void>
   performEventMoveForDrawing: Nullable<(params: OverlayPerformEventParams) => void>
   pressedOtherMovePointIndexes: Nullable<(params: { key: string, points: Array<Partial<Point>> }) => Nullable<number[]>>
+  performEventPressedOtherMove: Nullable<(params: { key: string, points: Array<Partial<Point>>, includedIndexes: Nullable<number[]> }) => void>
   onDrawStart: Nullable<OverlayEventCallback>
   onDrawing: Nullable<OverlayEventCallback>
   onDrawEnd: Nullable<OverlayEventCallback>
@@ -358,7 +366,7 @@ export default abstract class OverlayImp implements Overlay {
       needDefaultPointFigure, needDefaultXAxisFigure, needDefaultYAxisFigure,
       createPointFigures, createXAxisFigures, createYAxisFigures,
       performEventPressedMove, performEventMoveForDrawing,
-      pressedOtherMovePointIndexes,
+      pressedOtherMovePointIndexes, performEventPressedOtherMove,
       onDrawStart, onDrawing, onDrawEnd,
       onClick, onDoubleClick, onRightClick,
       onPressedMoveStart, onPressedMoving, onPressedMoveEnd,
@@ -384,6 +392,7 @@ export default abstract class OverlayImp implements Overlay {
     this.performEventPressedMove = performEventPressedMove ?? null
     this.performEventMoveForDrawing = performEventMoveForDrawing ?? null
     this.pressedOtherMovePointIndexes = pressedOtherMovePointIndexes ?? null
+    this.performEventPressedOtherMove = performEventPressedOtherMove ?? null
     this.onDrawStart = onDrawStart ?? null
     this.onDrawing = onDrawing ?? null
     this.onDrawEnd = onDrawEnd ?? null
@@ -707,17 +716,24 @@ export default abstract class OverlayImp implements Overlay {
           return { ...p }
         }
         if (isNumber(p.timestamp)) {
-          p.dataIndex = timeScaleStore.timestampToDataIndex(p.timestamp)
+          p.dataIndex = timeScaleStore.timestampToDataIndexFlex(p.timestamp)
         }
         const newPoint = { ...p }
         if (isNumber(difDataIndex) && isNumber(p.dataIndex)) {
           newPoint.dataIndex = p.dataIndex + difDataIndex
-          newPoint.timestamp = timeScaleStore.dataIndexToTimestamp(newPoint.dataIndex) ?? undefined
+          newPoint.timestamp = timeScaleStore.dataIndexToTimestampFlex(newPoint.dataIndex) ?? undefined
         }
         if (isNumber(difValue) && isNumber(p.value)) {
           newPoint.value = p.value + difValue
         }
         return newPoint
+      })
+      // Trade fork: after a scoped translate the overlay may need to restore
+      // cross-point invariants (e.g. a channel keeping both edges time-aligned).
+      this.performEventPressedOtherMove?.({
+        key: figureKey ?? '',
+        points: this.points,
+        includedIndexes
       })
     }
   }

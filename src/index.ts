@@ -37,6 +37,7 @@ import {
 } from './common/utils/typeChecks'
 import { formatValue, formatPrecision, formatBigNumber, formatDate, formatThousands, formatFoldDecimal } from './common/utils/format'
 import { calcTextWidth } from './common/utils/canvas'
+import { inferBarTimespan, extrapolateTimestampFromDataIndex, extrapolateDataIndexFromTimestamp } from './common/utils/timeScale'
 import { ActionType } from './common/Action'
 import { LoadDataType } from './common/LoadDataCallback'
 
@@ -150,6 +151,9 @@ const utils = {
   getLinearSlopeIntercept,
   getLinearYFromSlopeIntercept,
   getLinearYFromCoordinates,
+  inferBarTimespan,
+  extrapolateTimestampFromDataIndex,
+  extrapolateDataIndexFromTimestamp,
   checkCoordinateOnArc,
   checkCoordinateOnCircle,
   checkCoordinateOnLine,

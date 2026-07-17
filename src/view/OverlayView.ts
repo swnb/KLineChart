@@ -362,7 +362,9 @@ export default class OverlayView<C extends Axis = YAxis> extends View<C> {
     if (this.coordinateToPointTimestampDataIndexFlag()) {
       const xAxis = chart.getXAxisPane().getAxisComponent()
       const dataIndex = xAxis.convertFromPixel(coordinate.x)
-      const timestamp = timeScaleStore.dataIndexToTimestamp(dataIndex) ?? undefined
+      // Trade fork: extrapolate along the bar grid so anchors dropped in the
+      // whitespace beyond the loaded range still resolve a timestamp.
+      const timestamp = timeScaleStore.dataIndexToTimestampFlex(dataIndex) ?? undefined
       point.dataIndex = dataIndex
       point.timestamp = timestamp
     }
@@ -523,7 +525,9 @@ export default class OverlayView<C extends Axis = YAxis> extends View<C> {
     const coordinates = points.map(point => {
       let dataIndex = point.dataIndex
       if (isNumber(point.timestamp)) {
-        dataIndex = timeScaleStore.timestampToDataIndex(point.timestamp)
+        // Trade fork: keep future/past-anchored points on the extrapolated bar
+        // grid instead of clamping them onto the edge bars.
+        dataIndex = timeScaleStore.timestampToDataIndexFlex(point.timestamp)
       }
       const coordinate = { x: 0, y: 0 }
       if (isNumber(dataIndex)) {

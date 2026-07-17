@@ -788,6 +788,16 @@ export interface Overlay {
 		points: Array<Partial<Point>>;
 	}) => Nullable<number[]>>;
 	/**
+	 * Called after a pressed move on a non-point figure has translated the
+	 * points, so the overlay can restore cross-point invariants in place.
+	 * Trade fork extension (companion to pressedOtherMovePointIndexes).
+	 */
+	performEventPressedOtherMove: Nullable<(params: {
+		key: string;
+		points: Array<Partial<Point>>;
+		includedIndexes: Nullable<number[]>;
+	}) => void>;
+	/**
 	 * Start drawing event
 	 */
 	onDrawStart: Nullable<OverlayEventCallback>;
@@ -845,7 +855,7 @@ export interface Overlay {
 	onDeselected: Nullable<OverlayEventCallback>;
 }
 export type OverlayTemplate = ExcludePickPartial<Omit<Overlay, "id" | "groupId" | "paneId" | "points" | "currentStep">, "name">;
-export type OverlayCreate = ExcludePickPartial<Omit<Overlay, "paneId" | "currentStep" | "totalStep" | "drawByDrag" | "createPointFigures" | "createXAxisFigures" | "createYAxisFigures" | "performEventPressedMove" | "performEventMoveForDrawing" | "pressedOtherMovePointIndexes">, "name">;
+export type OverlayCreate = ExcludePickPartial<Omit<Overlay, "paneId" | "currentStep" | "totalStep" | "drawByDrag" | "createPointFigures" | "createXAxisFigures" | "createYAxisFigures" | "performEventPressedMove" | "performEventMoveForDrawing" | "pressedOtherMovePointIndexes" | "performEventPressedOtherMove">, "name">;
 export type OverlayRemove = Partial<Pick<Overlay, "id" | "groupId" | "name">>;
 export type OverlayConstructor = new () => Overlay;
 export declare enum DomPosition {
@@ -1212,6 +1222,15 @@ export declare const utils: {
 	getLinearSlopeIntercept: typeof getLinearSlopeIntercept;
 	getLinearYFromSlopeIntercept: typeof getLinearYFromSlopeIntercept;
 	getLinearYFromCoordinates: typeof getLinearYFromCoordinates;
+	inferBarTimespan: (dataList: Array<{
+		timestamp: number;
+	}>) => Nullable<number>;
+	extrapolateTimestampFromDataIndex: (dataList: Array<{
+		timestamp: number;
+	}>, dataIndex: number) => Nullable<number>;
+	extrapolateDataIndexFromTimestamp: (dataList: Array<{
+		timestamp: number;
+	}>, timestamp: number) => number;
 	checkCoordinateOnArc: typeof checkCoordinateOnArc;
 	checkCoordinateOnCircle: typeof checkCoordinateOnCircle;
 	checkCoordinateOnLine: typeof checkCoordinateOnLine;

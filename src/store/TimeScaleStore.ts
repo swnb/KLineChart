@@ -22,6 +22,7 @@ import { ActionType } from '../common/Action'
 
 import { logWarn } from '../common/utils/logger'
 import { binarySearchNearest } from '../common/utils/number'
+import { extrapolateTimestampFromDataIndex, extrapolateDataIndexFromTimestamp } from '../common/utils/timeScale'
 import { isNumber, isString } from '../common/utils/typeChecks'
 
 import type ChartStore from './ChartStore'
@@ -372,6 +373,17 @@ export default class TimeScaleStore {
   dataIndexToTimestamp (dataIndex: number): Nullable<number> {
     const data = this.getDataByDataIndex(dataIndex)
     return data?.timestamp ?? null
+  }
+
+  // Trade fork: overlay anchors may sit in the whitespace beyond the loaded
+  // range (TV-style future anchors). These variants extrapolate along the
+  // inferred bar grid instead of returning null / clamping to the edge bars.
+  dataIndexToTimestampFlex (dataIndex: number): Nullable<number> {
+    return extrapolateTimestampFromDataIndex(this._chartStore.getDataList(), dataIndex)
+  }
+
+  timestampToDataIndexFlex (timestamp: number): number {
+    return extrapolateDataIndexFromTimestamp(this._chartStore.getDataList(), timestamp)
   }
 
   timestampToDataIndex (timestamp: number): number {
